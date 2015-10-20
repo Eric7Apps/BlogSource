@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://ericsoftwarenotes.blogspot.com/
+// http://eric7apps.blogspot.com/
 
 using System;
 using System.Collections.Generic;
