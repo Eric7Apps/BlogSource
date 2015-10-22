@@ -28,7 +28,7 @@ namespace ExampleServer
 {
   public partial class MainForm : Form
   {
-  internal const string VersionDate = "10/19/2015";
+  internal const string VersionDate = "10/22/2015";
   internal const int VersionNumber = 09; // 0.9
   internal const string MessageBoxTitle = "Eric's Example Server";
   private System.Threading.Mutex SingleInstanceMutex = null;
@@ -47,6 +47,7 @@ namespace ExampleServer
   internal WebFilesData WebFData;
   internal DomainX509Data X509Data;
   private RNGCryptoServiceProvider CryptoRand;
+  private MakeRSAKeysForm MakeKeysForm;
 
 
 
@@ -80,6 +81,7 @@ namespace ExampleServer
     WebListenForm = new WebListenerForm( this );
     TLSListenForm = new TLSListenerForm( this );
     CustomerMsgForm = new CustomerMessageForm( this );
+    MakeKeysForm = new MakeRSAKeysForm( this );
 
     CheckTimer.Interval = 5 * 60 * 1000;
     CheckTimer.Start();
@@ -325,7 +327,6 @@ namespace ExampleServer
       CustomerMsgForm = null;
       }
 
-    /*
     if( MakeKeysForm != null )
       {
       if( !MakeKeysForm.IsDisposed )
@@ -339,8 +340,6 @@ namespace ExampleServer
 
       MakeKeysForm = null;
       }
-      */
-
     }
 
 
@@ -443,6 +442,23 @@ namespace ExampleServer
       return;
 
     CustomerMsgForm.ShowStatus( Status ); 
+    }
+
+
+
+    
+  internal void ShowMakeKeysFormStatus( string Status )
+    {
+    if( IsClosing )
+      return;
+
+    if( MakeKeysForm == null )
+      return;
+
+    if( MakeKeysForm.IsDisposed )
+      return;
+
+    MakeKeysForm.ShowStatus( Status ); 
     }
 
 
@@ -554,7 +570,22 @@ namespace ExampleServer
     }
 
 
+
+  private void showRSAMakeKeysToolStripMenuItem_Click(object sender, EventArgs e)
+    {
+    if( MakeKeysForm == null )
+      return;
+
+    if( MakeKeysForm.IsDisposed )
+      return;
+
+    MakeKeysForm.Show();
+    MakeKeysForm.WindowState = FormWindowState.Normal;
+    MakeKeysForm.BringToFront();
+    }
+
+
+
   }
 }
-
 
