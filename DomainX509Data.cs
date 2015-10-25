@@ -81,7 +81,9 @@ namespace ExampleServer
         // continue;
 
       // return "127.0.0.1"; // For testing with local loopback.
-      return Rec.DomainName;
+      return "promocodeclub.com";
+      // return "durangoherald.com"; They don't have HTTPS on this domain.
+      // return Rec.DomainName;
       }
 
     return ""; // It shouldn't get here.
@@ -98,7 +100,8 @@ namespace ExampleServer
 
   internal bool ImportFromOriginalListFile()
     {
-    string FileName = MForm.GetDataDirectory() + "Top1MillionDomains.txt";
+    // string FileName = MForm.GetDataDirectory() + "Top1MillionDomains.txt";
+    string FileName = MForm.GetDataDirectory() + "Top10KDomains.txt";
     // ECTime RecTime = new ECTime();
 
     try
@@ -120,7 +123,8 @@ namespace ExampleServer
         if( !Line.Contains( "," ))
           continue;
 
-        DomainX509Record Rec = new DomainX509Record( MForm );
+        // False is don't create the dictionary here.
+        DomainX509Record Rec = new DomainX509Record( false );
         if( !Rec.ImportOriginalStringToObject( Line ))
           continue;
 
@@ -152,6 +156,5 @@ namespace ExampleServer
 
   }
 }
-
 
 
