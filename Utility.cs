@@ -1,4 +1,6 @@
 // Programming by Eric Chauvin.
+// Notes on this source code are at:
+// http://eric7apps.blogspot.com/
 
 using System;
 using System.Collections.Generic;
@@ -65,6 +67,15 @@ namespace ExampleServer
       }
 
     return SBuilder.ToString();
+    }
+
+
+  internal static string TruncateString( string InString, int HowLong )
+    {
+    if( InString.Length <= HowLong )
+      return InString;
+
+    return InString.Remove( HowLong );
     }
 
 
