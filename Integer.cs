@@ -203,7 +203,6 @@ namespace ExampleServer
 
 
 
-
   internal bool IsULong()
     {
     if( Index > 1 )
@@ -212,7 +211,6 @@ namespace ExampleServer
       return true;
     
     }
-
 
 
 
@@ -227,7 +225,6 @@ namespace ExampleServer
     Result |= D[0];
     return Result;
     }
-
 
 
 
@@ -350,7 +347,7 @@ namespace ExampleServer
       }
     }
 
-  
+
 
 
   internal void Add( Integer ToAdd )
@@ -413,7 +410,6 @@ namespace ExampleServer
       Index = 1;
 
     }
-
 
 
 
@@ -604,7 +600,6 @@ namespace ExampleServer
 
 
 
-
   internal void ShiftLeft( int ShiftBy )
     {
     // This one is not meant to shift more than 32 bits
@@ -633,7 +628,6 @@ namespace ExampleServer
       D[Index] = Carry;
       }
     }
-
 
 
 
@@ -666,7 +660,6 @@ namespace ExampleServer
 
 
 
-
   // This is used in some algorithms to set one particular
   // digit and have all other digits set to zero.
   internal void SetDigitAndClear( int Where, ulong ToSet )
@@ -689,8 +682,6 @@ namespace ExampleServer
       D[Count] = 0;
 
     }
-
-
 
 
 
@@ -749,7 +740,6 @@ namespace ExampleServer
     D[0] |= 1; // Make it odd.
     return true;
     }
-
 
 
 
@@ -874,11 +864,104 @@ namespace ExampleServer
 
 
 
+  internal bool SetFromULongBigEndianByteArray( byte[] BytesToSet )
+    {
+    if( BytesToSet == null )
+      return false;
+
+    if( BytesToSet.Length > 8 )
+      return false;
+
+    ulong ToSet = 0;
+    for( int Count = 0; Count < BytesToSet.Length; Count++ )
+      {
+      ToSet <<= 8;
+      ToSet |= BytesToSet[Count];
+      }
+
+    SetFromULong( ToSet );
+    return true;
+    }
+
+
+
+  internal bool SetFromBigEndianByteArray( byte[] BytesToSet )
+    {
+    if( BytesToSet == null )
+      return false;
+
+    if( BytesToSet.Length > (DigitArraySize - 3))
+      return false;
+
+    if( BytesToSet.Length <= 8 )
+      return SetFromULongBigEndianByteArray( BytesToSet );
+
+    Array.Reverse( BytesToSet ); // Make it small-endian.
+    ulong Digit = 0;
+    Index = 0;
+
+    // BytesToSet.Length is more than 8 here.
+    for( int Count = 0; (Count + 3) < BytesToSet.Length; Count += 4 )
+      {
+      Digit = BytesToSet[Count + 3];
+      Digit <<= 8;
+      Digit |= BytesToSet[Count + 2];
+      Digit <<= 8;
+      Digit |= BytesToSet[Count + 1];
+      Digit <<= 8;
+      Digit |= BytesToSet[Count];
+
+      D[Index] = Digit;
+      Index++;
+      }
+
+    // If the length isn't a multiple of 4.
+    if( (BytesToSet.Length & 3) != 0 )
+      {
+      int HowManyLeft = BytesToSet.Length & 3;
+      int Where = BytesToSet.Length - 1;
+      Digit = 0;
+      for( int Count = 0; Count < HowManyLeft; Count++ )
+        {
+        Digit <<= 8;
+        Digit |= BytesToSet[Where];
+        Where--;
+        }
+
+      D[Index] = Digit;
+      // And then leave the Index there.
+      }
+    else
+      {
+      Index--;
+      }
+
+    // Make sure there isn't a zero at the top.
+    for( int Count = Index; Count >= 0; Count-- )
+      {
+      if( D[Count] != 0 )
+        break;
+
+      Index--;
+      if( Index == 0 )
+        break;
+
+      }
+
+    // Test:
+    for( int Count = 0; Count <= Index; Count++ )
+      {
+      if( (D[Count] >> 32) != 0 )
+        throw( new Exception( "(D[Count] >> 32) != 0 for Integer.SetFromBigEndianByteArray()." ));
+
+      }
+
+    return true;
+    }
 
 
   }
 }
-
 
 
 
