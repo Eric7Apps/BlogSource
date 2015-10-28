@@ -16,6 +16,7 @@ namespace ExampleServer
   private MainForm MForm;
   private DomainX509Record[] DomainX509RecArray;
   private int DomainX509RecArrayLast = 0;
+  private string FileName = "";
 
 
   private DomainX509Data()
@@ -24,9 +25,10 @@ namespace ExampleServer
     }
 
 
-  internal DomainX509Data( MainForm UseForm )
+  internal DomainX509Data( MainForm UseForm, string FileToUseName )
     {
     MForm = UseForm;
+    FileName = FileToUseName;
 
     DomainX509RecArray = new DomainX509Record[8]; // It will resize it.
     }
@@ -59,6 +61,7 @@ namespace ExampleServer
     }
 
 
+
   internal string GetRandomDomainName()
     {
     try
@@ -81,9 +84,9 @@ namespace ExampleServer
         // continue;
 
       // return "127.0.0.1"; // For testing with local loopback.
-      return "promocodeclub.com";
+      // return "promocodeclub.com";
       // return "durangoherald.com"; They don't have HTTPS on this domain.
-      // return Rec.DomainName;
+      return Rec.DomainName;
       }
 
     return ""; // It shouldn't get here.
@@ -110,23 +113,38 @@ namespace ExampleServer
     using( StreamReader SReader = new StreamReader( FileName  )) 
       {
       int HowMany = 0;
-      while( SReader.Peek() >= 0 ) 
+      for( int Count = 0; Count < 1000000; Count++ )
         {
+        /*
+        if( (Count & 0xFF) == 1 )
+          {
+          MForm.ShowStatus( "Count is: " + Count.ToString( "N0" ));
+          if( !MForm.CheckEvents())
+            return false;
+
+          }
+          */
+
+        if( SReader.Peek() < 0 ) 
+          break;
+
         Line = SReader.ReadLine();
         if( Line == null )
-          continue;
+          break;
           
-        // Line = Line.Trim();
+        Line = Line.Trim();
         if( Line.Length < 3 )
-          continue;
+          break;
 
         if( !Line.Contains( "," ))
           continue;
 
-        // False is don't create the dictionary here.
-        DomainX509Record Rec = new DomainX509Record( false );
+        DomainX509Record Rec = new DomainX509Record();
         if( !Rec.ImportOriginalStringToObject( Line ))
+          {
+          MForm.ShowStatus( "Got false for: " + Line );
           continue;
+          }
 
         if( !Rec.DomainName.EndsWith( ".com" ))
           continue;
@@ -152,6 +170,36 @@ namespace ExampleServer
       }
     }
 
+
+
+  internal bool WriteToTextFile()
+    {
+    try
+    {
+    using( StreamWriter SWriter = new StreamWriter( FileName  )) 
+      {
+      for( int Count = 0; Count < DomainX509RecArrayLast; Count++ )
+        {
+        DomainX509Record Rec = DomainX509RecArray[Count];
+        string Line = Rec.ObjectToString();
+        if( Line.Length > 3 )
+          SWriter.WriteLine( Line );
+
+        }
+
+      SWriter.WriteLine( " " );
+      }
+
+    return true;
+
+    }
+    catch( Exception Except )
+      {
+      MForm.ShowStatus( "Could not write to the file in DomainX509Data.WriteToTextFile()." );
+      MForm.ShowStatus( Except.Message );
+      return false;
+      }
+    }
 
 
   }
