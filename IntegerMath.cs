@@ -17,6 +17,7 @@
 
 using System;
 using System.Text;
+using System.ComponentModel; // BackgroundWorker
 
 
 
@@ -39,6 +40,9 @@ namespace ExampleServer
   private Integer ToDivide;
   private Integer XForModPower;
   private Integer ExponentCopy;
+  private Integer TestForModInverse;
+  private Integer CipherToDP;
+
   private int PrimeArrayLast = 0;
   private uint[] PrimeArray;
 
@@ -49,6 +53,9 @@ namespace ExampleServer
     {
     SignedD = new long[Integer.DigitArraySize];
     M = new ulong[Integer.DigitArraySize, Integer.DigitArraySize];
+    // These numbers are created ahead of time so that they don't have
+    // to be created over and over again within a loop where the 
+    // calculations are being done.
     Quotient = new Integer();
     Remainder = new Integer();
     Test1 = new Integer();
@@ -62,6 +69,8 @@ namespace ExampleServer
     ToDivide = new Integer();
     XForModPower = new Integer();
     ExponentCopy = new Integer();
+    TestForModInverse = new Integer();
+    CipherToDP = new Integer();
 
     MakePrimeArray();
     }
@@ -2305,6 +2314,92 @@ namespace ExampleServer
     }
 
 
+
+  internal bool FindMultiplicativeInverseSmall( Integer ToFind, Integer KnownNumber, Integer Modulus, BackgroundWorker Worker )
+    {
+    // This method is for: KnownNumber * ToFind = 1 mod Modulus
+    // An example:
+    // PublicKeyExponent * X = 1 mod PhiN.
+    // PublicKeyExponent * X = 1 mod (P - 1)(Q - 1).
+    // This means that 
+    // (PublicKeyExponent * X) = (Y * PhiN) + 1
+    // X is less than PhiN.
+    // So Y is less than PublicKExponent.
+    // Y can't be zero.
+    // If this equation can be solved then it can be solved modulo
+    // any number.  So it has to be solvable mod PublicKExponent.
+    // See: Hasse Principle.
+    // This also depends on the idea that the KnownNumber is prime and
+    // that there is one unique modular inverse.
+
+    // if( !KnownNumber-is-a-prime )
+    //    then it won't work.
+
+    if( !KnownNumber.IsULong())
+      {
+      Worker.ReportProgress( 0, "FindMultiplicativeInverseSmall() was called with too big of a KnownNumber." );
+      return false;
+      }
+
+    ulong KnownNumberULong  = KnownNumber.GetAsULong();
+    //                       65537
+    if( KnownNumberULong > 1000000 )
+      {
+      Worker.ReportProgress( 0, "KnownNumberULong > 1000000. FindMultiplicativeInverseSmall() was called with too big of an exponent." );
+      return false;
+      }
+
+    // (Y * PhiN) + 1 mod PubKExponent has to be zero if Y is a solution.
+    ulong ModulusModKnown = GetMod32( Modulus, KnownNumberULong );
+    Worker.ReportProgress( 0, "ModulusModExponent: " + ModulusModKnown.ToString( "N0" ));
+    if( Worker.CancellationPending )
+      return false;
+
+    // Y can't be zero.
+    // The exponent is a small number like 65537.
+    for( uint Y = 1; Y < (uint)KnownNumberULong; Y++ )
+      {
+      ulong X = (ulong)Y * ModulusModKnown;
+      X++; // Add 1 to it for (Y * PhiN) + 1.
+      X = X % KnownNumberULong;
+      if( X == 0 )
+        {
+        if( Worker.CancellationPending )
+          return false;
+
+        Worker.ReportProgress( 0, "Found Y at: " + Y.ToString( "N0" ));
+        ToFind.Copy( Modulus );
+        MultiplyULong( ToFind, Y );
+        ToFind.AddULong( 1 );
+        Divide( ToFind, KnownNumber, Quotient, Remainder );
+        if( !Remainder.IsZero())
+          {
+          Worker.ReportProgress( 0, "This can't happen. !Remainder.IsZero()" );
+          return false;
+          }
+
+        ToFind.Copy( Quotient );
+        // Worker.ReportProgress( 0, "ToFind: " + ToString10( ToFind ));
+        break;
+        }
+      }
+
+    if( Worker.CancellationPending )
+      return false;
+
+    TestForModInverse.Copy( ToFind );
+    MultiplyULong( TestForModInverse, KnownNumberULong );
+    Divide( TestForModInverse, Modulus, Quotient, Remainder );
+    if( !Remainder.IsOne())
+      {
+      // The definition is that it's congruent to 1 mod the modulus,
+      // so this has to be 1.
+      Worker.ReportProgress( 0, "This is a bug. Remainder has to be 1: " + ToString10( Remainder ));
+      return false;
+      }
+
+    return true;
+    }
 
 
   }
