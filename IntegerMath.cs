@@ -27,26 +27,47 @@ namespace ExampleServer
   {
   private long[] SignedD; // Signed digits for use in subtraction.
   private ulong[,] M; // Scratch pad, just like you would do on paper.
+  // I don't want to create any of these numbers inside a loop
+  // so they are created just once here.
+  private Integer ToDivide;
   private Integer Quotient;
   private Integer Remainder;
-  private Integer Test1;
-  private Integer Test2;
   private Integer ToDivideKeep;
   private Integer DivideByKeep;
   private Integer DivideBy;
-  private Integer Temp1;
-  private Integer Temp2;
-  private Integer Temp3;
-  private Integer ToDivide;
+  private Integer Test1;
+  private Integer Test2;
+  private Integer TempAdd1;
+  private Integer TempAdd2;
+  private Integer TempSub1;
+  private Integer TempSub2;
+  private Integer GcdX;
+  private Integer GcdY;
+  private Integer TempX;
+  private Integer TempY;
   private Integer XForModPower;
   private Integer ExponentCopy;
   private Integer TestForModInverse;
-  private Integer CipherToDP;
+  private Integer U0;
+  private Integer U1;
+  private Integer U2;
+  private Integer V0;
+  private Integer V1;
+  private Integer V2;
+  private Integer T0;
+  private Integer T1;
+  private Integer T2;
+  private Integer SubtractTemp1;
+  private Integer SubtractTemp2;
+  private Integer Fermat1;
+  private Integer Fermat2;
+  private Integer TempEuclid1;
+  private Integer TempEuclid2;
+  private Integer TempEuclid3;
 
   private int PrimeArrayLast = 0;
   private uint[] PrimeArray;
-
-
+  private string StatusString = "";
 
 
   internal IntegerMath()
@@ -56,26 +77,53 @@ namespace ExampleServer
     // These numbers are created ahead of time so that they don't have
     // to be created over and over again within a loop where the 
     // calculations are being done.
+    ToDivide = new Integer();
     Quotient = new Integer();
     Remainder = new Integer();
-    Test1 = new Integer();
-    Test2 = new Integer();
     ToDivideKeep = new Integer();
     DivideByKeep = new Integer();
     DivideBy = new Integer();
-    Temp1 = new Integer();
-    Temp2 = new Integer();
-    Temp3 = new Integer();
-    ToDivide = new Integer();
+    Test1 = new Integer();
+    Test2 = new Integer();
+    TempAdd1 = new Integer();
+    TempAdd2 = new Integer();
+    TempSub1 = new Integer();
+    TempSub2 = new Integer();
+    TempX = new Integer();
+    TempY = new Integer();
+    GcdX = new Integer();
+    GcdY = new Integer();
     XForModPower = new Integer();
     ExponentCopy = new Integer();
     TestForModInverse = new Integer();
-    CipherToDP = new Integer();
+    U0 = new Integer();
+    U1 = new Integer();
+    U2 = new Integer();
+    V0 = new Integer();
+    V1 = new Integer();
+    V2 = new Integer();
+    T0 = new Integer();
+    T1 = new Integer();
+    T2 = new Integer();
+    SubtractTemp1 = new Integer();
+    SubtractTemp2 = new Integer();
+    Fermat1 = new Integer();
+    Fermat2 = new Integer();
+    TempEuclid1 = new Integer();
+    TempEuclid2 = new Integer();
+    TempEuclid3 = new Integer();
 
     MakePrimeArray();
     }
 
 
+
+  internal string GetStatusString()
+    {
+    string Result = StatusString;
+    StatusString = "";
+    return Result;
+    }
 
 
   internal uint GetFirstPrimeFactor( uint ToTest )
@@ -127,8 +175,10 @@ namespace ExampleServer
       if( 0 == GetFirstPrimeFactor( TestN ))
         {
         PrimeArray[PrimeArrayLast] = TestN;
-        PrimeArrayLast++;
+        // if( (PrimeArrayLast + 100) > PrimeArray.Length )
+          // StatusString += PrimeArray[PrimeArrayLast].ToString() + ",\r\n";
 
+        PrimeArrayLast++;
         if( PrimeArrayLast >= PrimeArray.Length )
           return;
 
@@ -190,7 +240,6 @@ namespace ExampleServer
       return;
       }
 
-
     for( int Count = 2; Count <= Result.GetIndex(); Count++ )
       SignedD[Count] = (long)Result.GetD( Count );
 
@@ -225,8 +274,148 @@ namespace ExampleServer
 
 
 
+  internal void Add( Integer Result, Integer ToAdd )
+    {
+    if( ToAdd.IsZero())
+      return;
+
+    // The most common form.  They are both positive.
+    if( !Result.IsNegative && !ToAdd.IsNegative )
+      {
+      Result.Add( ToAdd );
+      return;
+      }
+
+    if( !Result.IsNegative && ToAdd.IsNegative )
+      {
+      TempAdd1.Copy( ToAdd );
+      TempAdd1.IsNegative = false;
+      if( TempAdd1.ParamIsGreater( Result ))
+        {
+        Subtract( Result, TempAdd1 );
+        return;
+        }
+      else
+        {
+        Subtract( TempAdd1, Result );
+        Result.Copy( TempAdd1 );
+        Result.IsNegative = true;
+        return;
+        }
+      }
+
+    if( Result.IsNegative && !ToAdd.IsNegative )
+      {
+      TempAdd1.Copy( Result );
+      TempAdd1.IsNegative = false;
+      TempAdd2.Copy( ToAdd );
+
+      if( TempAdd1.ParamIsGreater( TempAdd2 ))
+        {
+        Subtract( TempAdd2, TempAdd1 );
+        Result.Copy( TempAdd2 );
+        return;
+        }
+      else
+        {
+        Subtract( TempAdd1, TempAdd2 );
+        Result.Copy( TempAdd2 );
+        Result.IsNegative = true;
+        return;
+        }
+      }
+
+    if( Result.IsNegative && ToAdd.IsNegative )
+      {
+      TempAdd1.Copy( Result );
+      TempAdd1.IsNegative = false;
+      TempAdd2.Copy( ToAdd );
+      TempAdd2.IsNegative = false;
+      TempAdd1.Add( TempAdd2 );
+      Result.Copy( TempAdd1 );
+      Result.IsNegative = true;
+      return;
+      }
+    }
+
+
 
   internal void Subtract( Integer Result, Integer ToSub )
+    {
+    // This checks that the sign is equal too.
+    if( Result.IsEqual( ToSub ))
+      {
+      Result.SetToZero();
+      return;
+      }
+
+    // ParamIsGreater() handles positive and negative values, so if the
+    // parameter is more toward the positive side then it's true.  It's greater.
+
+    // The most common form.  They are both positive.
+    if( !Result.IsNegative && !ToSub.IsNegative )
+      {
+      if( ToSub.ParamIsGreater( Result ))
+        {
+        SubtractPositive( Result, ToSub );
+        return;
+        }
+
+      // ToSub is bigger.
+      TempSub1.Copy( Result );
+      TempSub2.Copy( ToSub );
+      SubtractPositive( TempSub2, TempSub1 );
+      Result.Copy( TempSub2 );
+      Result.IsNegative = true;
+      return;
+      }
+
+    if( Result.IsNegative && !ToSub.IsNegative )
+      {
+      TempSub1.Copy( Result );
+      TempSub1.IsNegative = false;
+      TempSub1.Add( ToSub );
+      Result.Copy( TempSub1 );
+      Result.IsNegative = true;
+      return;
+      }
+
+    if( !Result.IsNegative && ToSub.IsNegative )
+      {
+      TempSub1.Copy( ToSub );
+      TempSub1.IsNegative = false;
+      Result.Add( TempSub1 );
+      return;
+      }
+
+    if( Result.IsNegative && ToSub.IsNegative )
+      {
+      TempSub1.Copy( Result );
+      TempSub1.IsNegative = false;
+      TempSub2.Copy( ToSub );
+      TempSub2.IsNegative = false;
+
+      // -12 - -7 = -12 + 7 = -5
+      // Comparing the positive numbers here.
+      if( TempSub2.ParamIsGreater( TempSub1 ))
+        {
+        SubtractPositive( TempSub1, TempSub2 );
+        Result.Copy( TempSub1 );
+        Result.IsNegative = true;
+        return;
+        }
+
+      // -7 - -12 = -7 + 12 = 5
+      SubtractPositive( TempSub2, TempSub1 );
+      Result.Copy( TempSub2 );
+      Result.IsNegative = false;
+      return;
+      }
+    }
+
+
+
+  internal void SubtractPositive( Integer Result, Integer ToSub )
     {
     if( ToSub.IsULong() )
       {
@@ -384,22 +573,33 @@ namespace ExampleServer
 
 
 
+  private void SetMultiplySign( Integer Result, Integer ToMul )
+    {
+    if( Result.IsNegative == ToMul.IsNegative )
+      Result.IsNegative = false;
+    else
+      Result.IsNegative = true;
+
+    }
+
+
+
 
   // See also: http://en.wikipedia.org/wiki/Karatsuba_algorithm
-
   internal void Multiply( Integer Result, Integer ToMul )
     {
     // try
     // {
 
+    if( Result.IsZero())
+      return;
+
     if( ToMul.IsULong())
       {
       MultiplyULong( Result, ToMul.GetAsULong());
+      SetMultiplySign( Result, ToMul );
       return;
       }
-
-    if( Result.IsZero())
-      return;
 
     // It could never get here if ToMul is zero because GetIsULong()
     // would be true for zero.
@@ -461,13 +661,7 @@ namespace ExampleServer
       Result.SetD( Result.GetIndex(), Carry );
       }
 
-    /*
-    }
-    catch( Exception ) // Except )
-      {
-      // "Bug in Multiply: " + Except.Message
-      }
-      */
+    SetMultiplySign( Result, ToMul );
     }
 
 
@@ -860,7 +1054,11 @@ namespace ExampleServer
     if( From.IsULong())
       {
       ulong N = From.GetAsULong();
-      return N.ToString( "N0" );
+      if( From.IsNegative )
+        return "-" + N.ToString( "N0" );
+      else
+        return N.ToString( "N0" );
+
       }
 
     string Result = "";
@@ -878,7 +1076,11 @@ namespace ExampleServer
       CommaCount++;
       }
 
-    return Result;
+    if( From.IsNegative )
+      return "-" + Result;
+    else
+      return Result;
+
     }
   
 
@@ -1249,6 +1451,12 @@ namespace ExampleServer
                         Integer Quotient,
                         Integer Remainder )
     {
+    if( ToDivideOriginal.IsNegative )
+      throw( new Exception( "Divide() can't be called with negative numbers." ));
+
+    if( DivideByOriginal.IsNegative )
+      throw( new Exception( "Divide() can't be called with negative numbers." ));
+
     // Returns true if it divides exactly with zero remainder.
     // This first checks for some basics before trying to divide it:
 
@@ -1272,7 +1480,9 @@ namespace ExampleServer
       return; //  true;
       }
 
-    if( ToDivide.IsULong())
+    // At this point DivideBy is smaller than ToDivide.
+
+    if( ToDivide.IsULong() )
       {
       ulong ToDivideU = ToDivide.GetAsULong();
       ulong DivideByU = DivideBy.GetAsULong();
@@ -2206,48 +2416,226 @@ namespace ExampleServer
 
 
 
-  internal void GreatestCommonDivisor( Integer A, Integer B, Integer Gcd )
+  internal void GreatestCommonDivisor( Integer X, Integer Y, Integer Gcd )
     {
-    // Don't do GCD with something that is zero.
-    if( A.IsZero())
+    // This is the basic Euclidean Algorithm.
+    if( X.IsZero())
       throw( new Exception( "Doing GCD with a parameter that is zero." ));
 
-    if( B.IsZero())
+    if( Y.IsZero())
       throw( new Exception( "Doing GCD with a parameter that is zero." ));
 
-    if( A.IsEqual( B ))
+    if( X.IsEqual( Y ))
       {
-      Gcd.Copy( A );
+      Gcd.Copy( X );
       return;
       }
 
     // Don't change the original numbers that came in as parameters.
-    if( A.ParamIsGreater( B ))
+    if( X.ParamIsGreater( Y ))
       {
-      // Switch them around.
-      Temp1.Copy( B );
-      Temp2.Copy( A );
+      GcdX.Copy( Y );
+      GcdY.Copy( X );
       }
     else
       {
-      Temp1.Copy( A );
-      Temp2.Copy( B );
+      GcdX.Copy( X );
+      GcdY.Copy( Y );
       }
 
     while( true )
       {
-      Divide( Temp1, Temp2, Quotient, Remainder );
+      Divide( GcdX, GcdY, Quotient, Remainder );
       if( Remainder.IsZero())
         {
-        Gcd.Copy( Temp2 ); // It's the smaller one.
+        Gcd.Copy( GcdY ); // It's the smaller one.
         // It can't return from this loop until the remainder is zero.
         return;
         }
 
-      Temp1.Copy( Temp2 ); // B is always bigger than the remainder.
-      Temp2.Copy( Remainder );
+      GcdX.Copy( GcdY );
+      GcdY.Copy( Remainder );
       }
     }
+
+
+  internal void TestMultiplicativeInverse( BackgroundWorker Worker )
+    {
+    Integer X = new Integer();
+    Integer Modulus = new Integer();
+    Integer MultInverse = new Integer();
+
+    // Some primes to test with:
+    // 384821, 384827, 384841, 384847, 384851, 384889, 384907, 384913, 384919, 
+    // 384941, 384961, 384973, 385001, 385013, 385027, 385039, 385057, 385069,
+    // 385939, 385943, 385967, 385991, 385997, 386017, 386039, 386041, 386047,
+    // 386051, 386083, 386093
+
+    // X.SetFromULong( 384821 );
+    // Modulus.SetFromULong( 386093 );
+    X.SetFromULong( 384847 );
+    Modulus.SetFromULong( 385991 );
+
+    MultiplicativeInverse( X, Modulus, MultInverse, Worker );
+    }
+
+
+
+  internal bool MultiplicativeInverse( Integer X, Integer Modulus, Integer MultInverse, BackgroundWorker Worker )
+    {
+    // This is the extended Euclidean Algorithm.
+    // It's the textbook algorithm you'll find all over the place.
+    // It's in Donald Knuth's books from the 1960s.
+
+    // A*X + B*Y = Gcd
+    // A*X + B*Y = 1 If there's a multiplicative inverse.
+    // A*X = 1 - B*Y so A is the multiplicative inverse of X mod Y.
+
+    if( X.IsZero())
+      throw( new Exception( "Doing Multiplicative Inverse with a parameter that is zero." ));
+
+    if( Modulus.IsZero())
+      throw( new Exception( "Doing Multiplicative Inverse with a parameter that is zero." ));
+
+    // This happens sometimes:
+    // if( Modulus.ParamIsGreaterOrEq( X ))
+      // throw( new Exception( "Modulus.ParamIsGreaterOrEq( X ) for Euclid." ));
+
+    // Worker.ReportProgress( 0, " " );
+    // Worker.ReportProgress( 0, " " );
+    // Worker.ReportProgress( 0, "Top of mod inverse." );
+
+    // U is the old part to keep.
+    U0.SetToZero();
+    U1.SetToOne();
+    U2.Copy( Modulus ); // Don't change the original numbers that came in as parameters.
+    
+    // V is the new part.
+    V0.SetToOne();
+    V1.SetToZero();
+    V2.Copy( X );
+
+    T0.SetToZero();
+    T1.SetToZero();
+    T2.SetToZero();
+    Quotient.SetToZero();
+
+    // Worker.ReportProgress( 0, " " );
+    // VerifyEuclid( X, Modulus, T0, T1, T2, Worker );
+
+    // while( not forever if there's a problem )
+    for( int Count = 0; Count < 10000; Count++ )
+      {
+      if( U2.IsNegative )
+        throw( new Exception( "U2 was negative." ));
+
+      if( V2.IsNegative )
+        throw( new Exception( "V2 was negative." ));
+
+      Divide( U2, V2, Quotient, Remainder );
+      if( Remainder.IsZero())
+        {
+        Worker.ReportProgress( 0, "Remainder is zero. No multiplicative-inverse." );
+        return false;
+        }
+
+      TempEuclid1.Copy( U0 );
+      TempEuclid2.Copy( V0 );
+      Multiply( TempEuclid2, Quotient );
+      Subtract( TempEuclid1, TempEuclid2 );
+      T0.Copy( TempEuclid1 );
+
+      TempEuclid1.Copy( U1 );
+      TempEuclid2.Copy( V1 );
+      Multiply( TempEuclid2, Quotient );
+      Subtract( TempEuclid1, TempEuclid2 );
+      T1.Copy( TempEuclid1 );
+
+      TempEuclid1.Copy( U2 );
+      TempEuclid2.Copy( V2 );
+      Multiply( TempEuclid2, Quotient );
+      Subtract( TempEuclid1, TempEuclid2 );
+      T2.Copy( TempEuclid1 );
+
+      // VerifyEuclid( X, Modulus, T0, T1, T2, Worker );
+
+      U0.Copy( V0 );
+      U1.Copy( V1 );
+      U2.Copy( V2 );
+      // VerifyEuclid( X, Modulus, U0, U1, U2, Worker );
+
+      V0.Copy( T0 );
+      V1.Copy( T1 );
+      V2.Copy( T2 );
+      // VerifyEuclid( X, Modulus, V0, V1, V2, Worker );
+
+      if( Remainder.IsOne())
+        {
+        // Worker.ReportProgress( 0, " " );
+        // Worker.ReportProgress( 0, "Remainder is 1. There is a multiplicative-inverse." );
+        break;
+        }
+      }
+
+    // VerifyEuclid( X, Modulus, T0, T1, T2, Worker );
+    // Worker.ReportProgress( 0, "X: " + ToString10( X ));
+    // Worker.ReportProgress( 0, "Modulus: " + ToString10( Modulus ));
+    // Worker.ReportProgress( 0, "T0: " + ToString10( T0 ));
+    // Worker.ReportProgress( 0, "T1: " + ToString10( T1 ));
+    // Worker.ReportProgress( 0, "T2: " + ToString10( T2 ));
+
+    //    X           T0      modulus        T1     Remainder
+    // 384,821   *  183,637 + 386,093 *   -183,032 = 1
+    MultInverse.Copy( T0 );
+    if( MultInverse.IsNegative )
+      {
+      Add( MultInverse, Modulus );
+      }
+
+    // Worker.ReportProgress( 0, "MultInverse: " + ToString10( MultInverse ));
+    Test1.Copy( MultInverse );
+    Test2.Copy( X );
+    Multiply( Test1, Test2 );
+    Divide( Test1, Modulus, Quotient, Remainder );
+    if( !Remainder.IsOne())  // By the definition of Multiplicative inverse:
+      throw( new Exception( "Bug. MultInverse is wrong: " + ToString10( Remainder )));
+
+    // Worker.ReportProgress( 0, "MultInverse is the right number: " + ToString10( MultInverse ));
+    return true;
+    }
+
+
+
+
+  private bool VerifyEuclid( Integer X, Integer Y, Integer W0, Integer W1, Integer W2, BackgroundWorker Worker )
+    {
+    // if (x*w[0] + y*w[1] != w[2])
+    TempEuclid1.Copy( X );
+    TempEuclid2.Copy( W0 );
+    Multiply( TempEuclid1, TempEuclid2 );
+
+    TempEuclid2.Copy( Y );
+    TempEuclid3.Copy( W1 );
+    Multiply( TempEuclid2, TempEuclid3 );
+
+    Add( TempEuclid1, TempEuclid2 );
+
+    string ShowS = ToString10( X ) + "*" + ToString10( W0 ) + " + " + 
+                   ToString10( Y ) + "*" + ToString10( W1 ) + " = " + 
+                   ToString10( W2 ); 
+
+    Worker.ReportProgress( 0, ShowS );
+
+    if( !W2.IsEqual( TempEuclid1 ))
+      {
+      Worker.ReportProgress( 0, "VerifyEuclid() returned false." );
+      return false;
+      }
+
+    Worker.ReportProgress( 0, "VerifyEuclid() returned true." );
+    return true;
+    }
+
 
 
 
@@ -2301,12 +2689,12 @@ namespace ExampleServer
     // 5^3 = 125.  125 - 5 = 120.  A multiple of 5.
     // 2^7 = 128.  128 - 2 = 7 * 18 (a multiple of 7.)
 
-    Temp1.Copy( ToTest );
-    SubtractULong( Temp1, 1 );
-    Temp2.SetFromULong( Base );
+    Fermat1.Copy( ToTest );
+    SubtractULong( Fermat1, 1 );
+    Fermat2.SetFromULong( Base );
 
-    ModularPower2( Temp2, Temp1, ToTest );
-    if( Temp2.IsOne())
+    ModularPower2( Fermat2, Fermat1, ToTest );
+    if( Fermat2.IsOne())
       return true; // It passed the test. It _might_ be a prime.
     else
       return false; // It is _definitely_ a composite number.
