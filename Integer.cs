@@ -18,6 +18,7 @@ namespace ExampleServer
 {
   class Integer
   {
+  internal bool IsNegative = false;
   private ulong[] D; // The digits.
   private int Index; // Highest digit.
   // The digit array size is fixed to keep it simple, but you might
@@ -36,10 +37,19 @@ namespace ExampleServer
 
   internal void SetToZero()
     {
+    IsNegative = false;
     Index = 0;
     D[0] = 0;
     }
 
+
+
+  internal void SetToOne()
+    {
+    IsNegative = false;
+    Index = 0;
+    D[0] = 1;
+    }
 
 
   internal bool IsZero()
@@ -55,6 +65,9 @@ namespace ExampleServer
 
   internal bool IsOne()
     {
+    if( IsNegative )
+      return false;
+
     if( (Index == 0) && (D[0] == 1) )
       return true;
     else
@@ -113,6 +126,7 @@ namespace ExampleServer
 
   internal void SetToMaxValue()
     {
+    IsNegative = false;
     Index = DigitArraySize - 1;
     for( int Count = 0; Count < DigitArraySize; Count++ )
       D[Count] = 0xFFFFFFFF;
@@ -124,6 +138,7 @@ namespace ExampleServer
 
   internal void SetFromULong( ulong ToSet )
     {
+    IsNegative = false;
     // If ToSet was zero then D[0] would be zero and
     // Index would be zero.
     D[0] = ToSet & 0xFFFFFFFF;
@@ -141,6 +156,7 @@ namespace ExampleServer
 
   internal void Copy( Integer CopyFrom )
     {
+    IsNegative = CopyFrom.IsNegative;
     Index = CopyFrom.Index;
     for( int Count = 0; Count <= Index; Count++ )
       D[Count] = CopyFrom.D[Count];
@@ -152,6 +168,9 @@ namespace ExampleServer
 
   internal bool IsEqualToULong( ulong ToTest )
     {
+    if( IsNegative )
+      return false;
+
     if( Index > 1 )
       return false;
 
@@ -181,6 +200,9 @@ namespace ExampleServer
 
   internal bool IsEqual( Integer X )
     {
+    if( IsNegative != X.IsNegative )
+      return false;
+
     // This first one is a likely way to quickly return a false.
     if( D[0] != X.D[0] )
       return false;
@@ -205,6 +227,8 @@ namespace ExampleServer
 
   internal bool IsULong()
     {
+    // if( IsNegative )
+
     if( Index > 1 )
       return false;
     else
@@ -240,9 +264,14 @@ namespace ExampleServer
 
 
 
-
   internal bool ParamIsGreater( Integer X )
     {
+    if( IsNegative )
+      throw( new Exception( "ParamIsGreater() can't be called with negative numbers." ));
+
+    if( X.IsNegative )
+      throw( new Exception( "ParamIsGreater() can't be called with negative numbers." ));
+
     if( Index != X.Index )
       {
       if( X.Index > Index )
@@ -261,8 +290,8 @@ namespace ExampleServer
           return true;
         else
           return false;
-        
-        }  
+
+        }
       }
 
     return false; // It was equal, but it wasn't greater.
@@ -273,29 +302,10 @@ namespace ExampleServer
 
   internal bool ParamIsGreaterOrEq( Integer X )
     {
-    if( Index != X.Index )
-      {
-      if( X.Index > Index )
-        return true;
-      else
-        return false;
+    if( IsEqual( X ))
+      return true;
 
-      }
-
-    // Indexes are the same:
-    for( int Count = Index; Count >= 0; Count-- )
-      {
-      if( D[Count] != X.D[Count] )
-        {
-        if( X.D[Count] > D[Count] )
-          return true;
-        else
-          return false;
-        
-        }
-      }
-
-    return true; // It was equal.
+    return ParamIsGreater( X );
     }
 
 
@@ -341,7 +351,7 @@ namespace ExampleServer
       {
       Index++;
       if( Index >= DigitArraySize )
-        throw( new Exception( "Integer.Add() overflow." ));
+        throw( new Exception( "Integer.AddULong() overflow." ));
 
       D[Index] = Carry;
       }
@@ -352,6 +362,15 @@ namespace ExampleServer
 
   internal void Add( Integer ToAdd )
     {
+    // There is a separate IntegerMath.Add() that is a wrapper to handle 
+    // negative numbers too.
+
+    if( IsNegative )
+      throw( new Exception( "Integer.Add() is being called when it's negative." ));
+
+    if( ToAdd.IsNegative )
+      throw( new Exception( "Integer.Add() is being called when ToAdd is negative." ));
+
     if( ToAdd.IsULong() )
       {
       AddULong( ToAdd.GetAsULong() );
@@ -688,6 +707,7 @@ namespace ExampleServer
 
   internal bool MakeRandomOdd( int SetToIndex, byte[] RandBytes )
     {
+    IsNegative = false;
     if( SetToIndex > (DigitArraySize - 3))
       SetToIndex = DigitArraySize - 3;
 
@@ -804,6 +824,7 @@ namespace ExampleServer
 
   internal bool SetFromAsciiString( string InString )
     {
+    IsNegative = false;
     Index = 0;
     if( InString.Length > (DigitArraySize - 3))
       return false;
@@ -866,6 +887,7 @@ namespace ExampleServer
 
   internal bool SetFromULongBigEndianByteArray( byte[] BytesToSet )
     {
+    IsNegative = false;
     if( BytesToSet == null )
       return false;
 
@@ -887,6 +909,7 @@ namespace ExampleServer
 
   internal bool SetFromBigEndianByteArray( byte[] BytesToSet )
     {
+    IsNegative = false;
     if( BytesToSet == null )
       return false;
 
@@ -896,7 +919,7 @@ namespace ExampleServer
     if( BytesToSet.Length <= 8 )
       return SetFromULongBigEndianByteArray( BytesToSet );
 
-    Array.Reverse( BytesToSet ); // Make it small-endian.
+    Array.Reverse( BytesToSet ); // Make it little-endian.
     ulong Digit = 0;
     Index = 0;
 
@@ -958,6 +981,32 @@ namespace ExampleServer
 
     return true;
     }
+
+
+
+  internal byte[] GetBigEndianByteArray()
+    {
+    byte[] Result = new byte[(Index + 1) * 4];
+
+    int Where = 0;
+    for( int Count = Index; Count >= 0; Count-- )
+      {
+      ulong Digit = D[Count];
+      Result[Where] = (byte)((Digit >> 24) & 0xFF);
+      Where++;
+      Result[Where] = (byte)((Digit >> 16) & 0xFF);
+      Where++;
+      Result[Where] = (byte)((Digit >> 8) & 0xFF);
+      Where++;
+      Result[Where] = (byte)(Digit & 0xFF);
+      Where++;
+      }
+
+    // This is likely to have one or more leading zero bytes,
+    // but not necessarily.
+    return Result;
+    }
+
 
 
   }
