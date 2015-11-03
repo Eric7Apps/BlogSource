@@ -33,8 +33,10 @@ namespace ExampleServer
   private Integer M1MinusM2;
   private Integer QInv;
   private Integer PrimeToFind;
-  private Integer CipherToDP;
   private Integer PlainTextMinusCipherToDP;
+  private Integer PlainTextMinusCipherToDQ;
+  private Integer CipherToDP;
+  private Integer CipherToDQ;
 
   private BackgroundWorker Worker;
   private MakeKeysWorkerInfo WInfo;
@@ -70,8 +72,11 @@ namespace ExampleServer
     M1MinusM2 = new Integer();
     QInv = new Integer();
     PrimeToFind = new Integer();
-    CipherToDP = new Integer();
     PlainTextMinusCipherToDP = new Integer();
+    PlainTextMinusCipherToDP = new Integer();
+    PlainTextMinusCipherToDQ = new Integer();
+    CipherToDP = new Integer();
+    CipherToDQ = new Integer();
     }
 
 
@@ -207,13 +212,16 @@ namespace ExampleServer
     // Commonly used exponent for RSA.  It is 2^16 + 1.
     const uint PubKeyExponentUint = 65537;
     PubKeyExponent.SetFromULong( PubKeyExponentUint );
-    // const int RandomIndex = 1024 / 32;
+    const int RandomIndex = 1024 / 32;
     // const int RandomIndex = 768 / 32;
-    const int RandomIndex = 512 / 32;
+    // const int RandomIndex = 512 / 32;
     int ShowBits = RandomIndex * 32;
     // int TestLoops = 0;
 
     Worker.ReportProgress( 0, "Bits size is: " + ShowBits.ToString());
+
+    // Worker.ReportProgress( 0, IntMath.GetStatusString());
+    // TestAddAndSubtract();
 
     // ulong Loops = 0;
     while( true )
@@ -411,6 +419,7 @@ namespace ExampleServer
       if( Worker.CancellationPending )
         return;
 
+
       // In RFC 2437 it defines a number dQ which is the multiplicative
       // inverse, mod (Q - 1) of e.  That dQ is named PrivKInverseExponentDQ here.
       Worker.ReportProgress( 0, " " );
@@ -432,7 +441,17 @@ namespace ExampleServer
                    PrivKInverseExponentDP,
                    Worker );
 
+      ExploreRSAOptimization( PubKeyExponent,
+                              PubKeyN,
+                              PrivKInverseExponentDP,
+                              PrivKInverseExponentDQ,
+                              PrimeP,
+                              PrimeQ,
+                              Worker );
 
+      // IntMath.TestMultiplicativeInverse( Worker );
+
+      // Make a random number to test encryption/decryption.
       int HowManyBytes = (RandomIndex * 4) + 4;
       byte[] RandBytes = MakeRandomBytes( HowManyBytes );
       if( RandBytes == null )
@@ -455,7 +474,7 @@ namespace ExampleServer
       Worker.ReportProgress( 0, "Before encrypting number: " + IntMath.ToString10( ToEncrypt ));
       Worker.ReportProgress( 0, " " );
 
-      IntMath.ModularPower2( ToEncrypt, PubKeyExponent, PubKeyN );
+      IntMath.ModularPower( ToEncrypt, PubKeyExponent, PubKeyN );
       if( Worker.CancellationPending )
         return;
 
@@ -467,7 +486,7 @@ namespace ExampleServer
 
       ECTime DecryptTime = new ECTime();
       DecryptTime.SetToNow();
-      IntMath.ModularPower2( ToEncrypt, PrivKInverseExponent, PubKeyN );
+      IntMath.ModularPower( ToEncrypt, PrivKInverseExponent, PubKeyN );
       Worker.ReportProgress( 0, "Decrypted number: " + IntMath.ToString10( ToEncrypt ));
 
       if( !PlainTextNumber.IsEqual( ToEncrypt ))
@@ -479,13 +498,40 @@ namespace ExampleServer
 
       // IntMath.Subtract( ToEncrypt, Padding );
       Worker.ReportProgress( 0, " " );
-      Worker.ReportProgress( 0, "Decrypt time seconds: " + DecryptTime.GetSecondsToNow().ToString( "N0" ));
+      Worker.ReportProgress( 0, "Decrypt time seconds: " + DecryptTime.GetSecondsToNow().ToString( "N2" ));
       Worker.ReportProgress( 0, " " );
       // Worker.ReportProgress( 0, "Ascii string after decrypt is: " + ToEncrypt.GetAsciiString() );
       // Worker.ReportProgress( 0, " " );
 
       if( Worker.CancellationPending )
         return;
+
+      //////////
+      // Test the optimized way of decrypting:
+      if( !ToEncrypt.MakeRandomOdd( RandomIndex, RandBytes ))
+        {
+        Worker.ReportProgress( 0, "Error making random number in MakeKeysBackGround.MakeAPrime()." );
+        return;
+        }
+
+      PlainTextNumber.Copy( ToEncrypt );
+      IntMath.ModularPower( ToEncrypt, PubKeyExponent, PubKeyN );
+      if( Worker.CancellationPending )
+        return;
+
+      CipherTextNumber.Copy( ToEncrypt );
+
+      DecryptWithQInverse( CipherTextNumber,
+                           ToEncrypt, // Decrypt it to this.
+                           PlainTextNumber, // Test it against this.
+                           PubKeyN,
+                           PrivKInverseExponentDP,
+                           PrivKInverseExponentDQ,
+                           PrimeP,
+                           PrimeQ,
+                           Worker );
+
+
 
       Worker.ReportProgress( 0, " " );
       Worker.ReportProgress( 0, "Found the values:" );
@@ -499,7 +545,8 @@ namespace ExampleServer
       Worker.ReportProgress( 1, "PubKeyN: " + IntMath.ToString10( PubKeyN ));
       Worker.ReportProgress( 0, " " );
       Worker.ReportProgress( 1, "PrivKInverseExponent: " + IntMath.ToString10( PrivKInverseExponent ));
-      return; // Comment this out to just leave it while( true ) for testing.
+
+      // return; // Comment this out to just leave it while( true ) for testing.
       }
     }
 
@@ -513,9 +560,10 @@ namespace ExampleServer
     {
     // If you can find PrivKInverseExponentDP (or DQ) then you can find the factors.
 
-    //                                                1         2         3         4         5         6         7         8
-    //                                       12345678901234567890123456789012345678901234567890123456789012345678901234567890
-    ToEncryptForInverse.SetFromAsciiString( "This is known Plain Text. This is known Plain Text. This is known Plain" );
+    // Make sure this number is big enough.  Bigger then PrimeP and
+    // PrimeQ is big enough. And the approximate bit-length of those is
+    // known from the public key length.
+    ToEncryptForInverse.SetFromAsciiString( "Any arbitrary number. This is known Plain Text. This is known Plain Text. This is known Plain Text. This is known Plain Text. " );
     Worker.ReportProgress( 0, " " );
     Worker.ReportProgress( 0, "ASCII string is: " + ToEncryptForInverse.GetAsciiString() );
 
@@ -536,7 +584,7 @@ namespace ExampleServer
       return false;
       }
 
-    IntMath.ModularPower2( ToEncryptForInverse, PubKeyExponent, PubKeyN );
+    IntMath.ModularPower( ToEncryptForInverse, PubKeyExponent, PubKeyN );
     if( Worker.CancellationPending )
       return false;
 
@@ -549,7 +597,7 @@ namespace ExampleServer
     // PrivKInverseExponentDQ is congruent to PrivKInverseExponent mod PrimeQMinus1.
 
     CipherToDP.Copy( CipherTextNumber );
-    IntMath.ModularPower2( CipherToDP, PrivKInverseExponentDP, PubKeyN );
+    IntMath.ModularPower( CipherToDP, PrivKInverseExponentDP, PubKeyN );
     if( Worker.CancellationPending )
       return false;
 
@@ -580,6 +628,514 @@ namespace ExampleServer
       return false;
       }
     }
+
+
+
+  private void TestAddAndSubtract()
+    {
+    // This is just to test that the sign comes out right, so it's just testing
+    // the outer wrapper parts.
+    Integer TestSub1 = new Integer();
+    Integer TestSub2 = new Integer();
+
+    TestSub1.SetFromULong( 23456 );
+    TestSub2.SetFromULong( 12345 );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Subtract( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+    // Worker.ReportProgress( 0, "Result: " + TestSub1.GetAsHexString());
+
+    TestSub1.SetFromULong( 12345 );
+    TestSub2.SetFromULong( 23456 );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Subtract( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+
+    TestSub1.SetFromULong( 23456 );
+    TestSub2.SetFromULong( 12345 );
+    TestSub2.IsNegative = true;
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Subtract( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+    TestSub1.SetFromULong( 12345 );
+    TestSub2.SetFromULong( 23456 );
+    TestSub2.IsNegative = true;
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Subtract( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+
+    TestSub1.SetFromULong( 23456 );
+    TestSub2.SetFromULong( 12345 );
+    TestSub1.IsNegative = true;
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Subtract( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+    TestSub1.SetFromULong( 12345 );
+    TestSub2.SetFromULong( 23456 );
+    TestSub1.IsNegative = true;
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Subtract( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+
+    TestSub1.SetFromULong( 23456 );
+    TestSub2.SetFromULong( 12345 );
+    TestSub1.IsNegative = true;
+    TestSub2.IsNegative = true;
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Subtract( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+    TestSub1.SetFromULong( 12345 );
+    TestSub2.SetFromULong( 23456 );
+    TestSub1.IsNegative = true;
+    TestSub2.IsNegative = true;
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Subtract( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "Addition:" );
+
+    TestSub1.SetFromULong( 23456 );
+    TestSub2.SetFromULong( 12345 );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Add( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+    // Worker.ReportProgress( 0, "Result: " + TestSub1.GetAsHexString());
+
+    TestSub1.SetFromULong( 12345 );
+    TestSub2.SetFromULong( 23456 );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Add( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+
+    TestSub1.SetFromULong( 23456 );
+    TestSub2.SetFromULong( 12345 );
+    TestSub2.IsNegative = true;
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Add( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+    TestSub1.SetFromULong( 12345 );
+    TestSub2.SetFromULong( 23456 );
+    TestSub2.IsNegative = true;
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Add( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+
+    TestSub1.SetFromULong( 23456 );
+    TestSub2.SetFromULong( 12345 );
+    TestSub1.IsNegative = true;
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Add( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+    TestSub1.SetFromULong( 12345 );
+    TestSub2.SetFromULong( 23456 );
+    TestSub1.IsNegative = true;
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Add( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+
+    TestSub1.SetFromULong( 23456 );
+    TestSub2.SetFromULong( 12345 );
+    TestSub1.IsNegative = true;
+    TestSub2.IsNegative = true;
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Add( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+
+    TestSub1.SetFromULong( 12345 );
+    TestSub2.SetFromULong( 23456 );
+    TestSub1.IsNegative = true;
+    TestSub2.IsNegative = true;
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestSub1: " + IntMath.ToString10( TestSub1 ));
+    Worker.ReportProgress( 0, "TestSub2: " + IntMath.ToString10( TestSub2 ));
+    IntMath.Add( TestSub1, TestSub2 );
+    Worker.ReportProgress( 0, "Result: " + IntMath.ToString10( TestSub1 ));
+    }
+
+
+
+    // What is the size of a number when it's the result of two numbers
+    // being multiplied?
+    // 2 times 2 is 4.
+    //       1  0
+    //       1  0
+    //       0  0
+    //    1  0
+    //    1  0  0
+    // Biggest bit is at index 2. (Zero based index.)
+
+    // 7 * 7 = 49
+    //                 1  1  1
+    //                 1  1  1
+    //                --------
+    //                 1  1  1
+    //              1  1  1
+    //           1  1  1
+    //          --------------
+    //        1  1  0  0  0  1
+    //       32 16           1 = 49
+    // Biggest bit is at 5 (2 + 2) + 1 because of the carry on the highest bit.
+    // The highest bit is at either index + index or it's
+    // at index + index + 1.
+
+
+
+  internal bool ExploreRSAOptimization( Integer PubKeyExponent,
+                                        Integer PubKeyN,
+                                        Integer PrivKInverseExponentDP,
+                                        Integer PrivKInverseExponentDQ,
+                                        Integer PrimeP,
+                                        Integer PrimeQ,
+                                        BackgroundWorker Worker )
+    {
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "Start of ExploreRSAOptimization()." );
+    Worker.ReportProgress( 0, " " );
+
+    // CRT Coefficient means Chinese Remainder Theorem Coefficient.
+
+    // See section 5.1.2 of RFC 2437 for these steps:
+    // http://tools.ietf.org/html/rfc2437
+    //      2.2 Let m_1 = c^dP mod p.
+    //      2.3 Let m_2 = c^dQ mod q.
+    //      2.4 Let h = qInv ( m_1 - m_2 ) mod p.
+    //      2.5 Let m = m_2 + hq.
+
+    // This is a totally arbitrary number that is roughly the size of 
+    // PrimeP and PrimeQ (about the same bit length), but bigger than
+    // either of them.
+    ToEncryptForInverse.SetFromAsciiString( "Any arbitrary number." );
+    ToEncryptForInverse.Add( PrimeP );
+    ToEncryptForInverse.Add( PrimeQ );
+
+    PlainTextNumber.Copy( ToEncryptForInverse );
+    Worker.ReportProgress( 0, "PlainTextNumber: " + IntMath.ToString10( PlainTextNumber ));
+
+    IntMath.ModularPower( ToEncryptForInverse, PubKeyExponent, PubKeyN );
+    if( Worker.CancellationPending )
+      return false;
+
+    CipherTextNumber.Copy( ToEncryptForInverse );
+
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "CipherTextNumber: " + IntMath.ToString10( CipherTextNumber ));
+
+    // If the plain text number is too small then M1ForInverse and
+    // M2ForInverse come out to be equal to the plain text number.
+    // With the RSA crypto system, padding is used to prevent this
+    // from happening.
+    //      2.2 Let m_1 = c^dP mod p.
+    M1ForInverse.Copy( CipherTextNumber );
+    IntMath.ModularPower( M1ForInverse, PrivKInverseExponentDP, PrimeP );
+    if( Worker.CancellationPending )
+      return false;
+
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "M1ForInverse: " + IntMath.ToString10( M1ForInverse ));
+
+    // In RFC 2437 it defines a number dQ which is the multiplicative
+    // inverse, mod (Q - 1) of e.  That dQ is named PrivKInverseExponentDQ here.
+
+    //      2.3 Let m_2 = c^dQ mod q.
+    M2ForInverse.Copy( CipherTextNumber );
+    IntMath.ModularPower( M2ForInverse, PrivKInverseExponentDQ, PrimeQ );
+    if( Worker.CancellationPending )
+      return false;
+
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "M2ForInverse: " + IntMath.ToString10( M2ForInverse ));
+
+    /////////////
+    CipherToDP.Copy( CipherTextNumber );
+    IntMath.ModularPower( CipherToDP, PrivKInverseExponentDP, PubKeyN );
+    if( Worker.CancellationPending )
+      return false;
+
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "CipherToDP: " + IntMath.ToString10( CipherToDP ));
+
+    PlainTextMinusCipherToDP.Copy( PlainTextNumber );
+    if( PlainTextMinusCipherToDP.ParamIsGreaterOrEq( CipherToDP ))
+      PlainTextMinusCipherToDP.Add( PubKeyN );
+
+    // Notice the relationship between the plain text number and the
+    // partial-plain-text number here.  This is the key to understanding
+    // how the Chinese Remainder Theorem is getting used.
+    IntMath.Subtract( PlainTextMinusCipherToDP, CipherToDP );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "PlainTextMinusCipherToDP: " + IntMath.ToString10( PlainTextMinusCipherToDP ));
+
+    // PlainTextMinusCipherToDP and PubKeyN are both congruent to zero mod PrimeP.
+    IntMath.GreatestCommonDivisor( PlainTextMinusCipherToDP, PubKeyN, PrimeToFind );
+    IntMath.Divide( PubKeyN, PrimeToFind, Quotient, Remainder );
+    if( Remainder.IsZero())
+      {
+      Worker.ReportProgress( 0, " " );
+      Worker.ReportProgress( 0, "The number PrimeP is:" );
+      Worker.ReportProgress( 0, IntMath.ToString10( PrimeToFind ));
+      }
+    else
+      {
+      Worker.ReportProgress( 0, "This is a bug. This should not happen." );
+      return false;
+      }
+
+    ////////
+    CipherToDQ.Copy( CipherTextNumber );
+    IntMath.ModularPower( CipherToDQ, PrivKInverseExponentDQ, PubKeyN );
+    if( Worker.CancellationPending )
+      return false;
+
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "CipherToDQ: " + IntMath.ToString10( CipherToDQ ));
+
+    PlainTextMinusCipherToDQ.Copy( PlainTextNumber );
+    if( PlainTextMinusCipherToDQ.ParamIsGreaterOrEq( CipherToDQ ))
+      PlainTextMinusCipherToDQ.Add( PubKeyN );
+
+    IntMath.Subtract( PlainTextMinusCipherToDQ, CipherToDQ );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "PlainTextMinusCipherToDQ: " + IntMath.ToString10( PlainTextMinusCipherToDQ ));
+
+    // PlainTextMinusCipherToDQ and PubKeyN are both congruent to zero mod PrimeQ.
+    IntMath.GreatestCommonDivisor( PlainTextMinusCipherToDQ, PubKeyN, PrimeToFind );
+    IntMath.Divide( PubKeyN, PrimeToFind, Quotient, Remainder );
+    if( Remainder.IsZero())
+      {
+      Worker.ReportProgress( 0, " " );
+      Worker.ReportProgress( 0, "The number PrimeQ is:" );
+      Worker.ReportProgress( 0, IntMath.ToString10( PrimeToFind ));
+      }
+    else
+      {
+      Worker.ReportProgress( 0, "This is a bug. This should not happen." );
+      return false;
+      }
+
+
+    ///////////
+    //      2.4 Let h = qInv * ( m_1 - m_2 ) mod p.
+    //      2.5 Let m = m_2 + hq.
+    // m is the plain text message.
+    // From the way it's defined above, the plain text message is larger than
+    // either PrimeP or PrimeQ and so it's necessarily larger than
+    // M2ForInverse, which isn't larger than PrimeQ.
+    if( PlainTextNumber.ParamIsGreater( M2ForInverse ))
+      {
+      Worker.ReportProgress( 0, "This is a bug. The plain text was too small." );
+      return false;
+      }
+
+    HForQInv.Copy( PlainTextNumber );
+    //      2.5 Let m = m_2 + hq.
+    IntMath.Subtract( HForQInv, M2ForInverse );
+    IntMath.Divide( HForQInv, PrimeQ, Quotient, Remainder );
+    if( !Remainder.IsZero())
+      {
+      Worker.ReportProgress( 0, "This is a bug. The Remainder for HForQInv has to be zero." );
+      return false;
+      }
+
+    HForQInv.Copy( Quotient );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "HForQInv is: " + IntMath.ToString10( HForQInv ));
+    //      2.5 Let m = m_2 + hq.
+    // HForQInv is: 1, 2, 3, or 17, or some small number like that because
+    // of the way the plain text number was defined to be about the
+    // same bit length as PrimeQ and PrimeP.  So the bit length of
+    // HForQInv should be very small.  But that's not true of any
+    // arbitrary plain text number that can be any size.
+    // m = m_2 + hq
+
+    if( Worker.CancellationPending )
+      return false;
+
+
+    // HForQInv is now equal to this h:
+    //      2.4 Let h = qInv * ( m_1 - m_2 ) mod p.
+    // h  + (Y * PrimeP) = qInv * ( m_1 - m_2 )
+
+    if( M1ForInverse.ParamIsGreater( M2ForInverse ))
+      M1ForInverse.Add( PrimeP );
+
+    M1MinusM2.Copy( M1ForInverse );
+    IntMath.Subtract( M1MinusM2, M2ForInverse );
+
+    // M1MinusM2 is about the same bit length as PrimeP or PrimeQ here.
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "M1MinusM2 is: " + IntMath.ToString10( M1MinusM2 ));
+    // M1MinusM2 is:
+    // 952,979,419,398,732,400,062,376,950,243,360,175,031,829,176,382,341,223,531,337,704,165,570,449,595,634,433,911,712,498,266,542,709,814,619,022,231,534,764,141,184,715,551,949,575,393,740,319,223,328,486,967,452,408
+    // The number PrimeP is:
+    // 4,309,187,269,259,906,350,710,607,763,515,484,238,396,386,998,650,671,014,243,877,765,782,493,146,329,875,226,603,402,585,088,707,322,678,166,907,546,268,966,354,062,137,357,415,937,440,385,719,393,661,841,140,387,859
+
+
+    // The RFC describes qInv as:
+    // coefficient INTEGER -- (inverse of q) mod p }
+
+    // QInv is the multiplicative inverse of PrimeQ mod PrimeP.
+    // That means that:
+    // QInv * PrimeQ = (Y * PrimeP) + 1
+    // PrimeQ and PrimeP are about the same size.  Meaning that they
+    // have about the same number of bits (because they're defined that
+    // way), and that implies that QInv and Y have about the same bit
+    // length.
+
+    Worker.ReportProgress( 0, " " );
+    // try
+    // {
+    if( !IntMath.MultiplicativeInverse( PrimeQ, PrimeP, QInv, Worker ))
+      {
+      Worker.ReportProgress( 0, "MultiplicativeInverse() returned false." );
+      return false;
+      }
+    /*
+    }
+    catch( Exception Except )
+      {
+      Worker.ReportProgress( 0, "Exception for MultiplicativeInverse()." );
+      Worker.ReportProgress( 0, Except.Message );
+      return false;
+      } */
+
+    Worker.ReportProgress( 0, "QInv is: " + IntMath.ToString10( QInv ));
+
+    // HForQInv is now equal to this h:
+    //      2.4 Let h = qInv * ( m_1 - m_2 ) mod p.
+    // h  + (Y * PrimeP) = qInv * ( m_1 - m_2 )
+    Test1.Copy( QInv );
+    IntMath.Multiply( Test1, M1MinusM2 );
+    Worker.ReportProgress( 0, "Before QInv Divide." );
+    IntMath.Divide( Test1, PrimeP, Quotient, Remainder );
+    if( !Remainder.IsEqual( HForQInv ))
+      {
+      Worker.ReportProgress( 0, "This is a bug. !Remainder.IsEqual( HForQInv )." );
+      return false;
+      }
+
+    Worker.ReportProgress( 0, "Finished ExploreRSAOptimization()." );
+    return true;
+    }
+
+
+
+  internal bool DecryptWithQInverse( Integer EncryptedNumber,
+                                     Integer DecryptedNumber,
+                                     Integer TestDecryptedNumber,
+                                     Integer PubKeyN,
+                                     Integer PrivKInverseExponentDP,
+                                     Integer PrivKInverseExponentDQ,
+                                     Integer PrimeP,
+                                     Integer PrimeQ,
+                                     BackgroundWorker Worker )
+    {
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "Top of DecryptWithQInverse()." );
+
+    // QInv and the dP and dQ numbers are normally already set up before
+    // you start your listening socket.
+    ECTime DecryptTime = new ECTime();
+    DecryptTime.SetToNow();
+
+    // See section 5.1.2 of RFC 2437 for these steps:
+    // http://tools.ietf.org/html/rfc2437
+    //      2.2 Let m_1 = c^dP mod p.
+    //      2.3 Let m_2 = c^dQ mod q.
+    //      2.4 Let h = qInv ( m_1 - m_2 ) mod p.
+    //      2.5 Let m = m_2 + hq.
+
+    Worker.ReportProgress( 0, "EncryptedNumber: " + IntMath.ToString10( EncryptedNumber ));
+
+    //      2.2 Let m_1 = c^dP mod p.
+    M1ForInverse.Copy( EncryptedNumber );
+    IntMath.ModularPower( M1ForInverse, PrivKInverseExponentDP, PrimeP );
+    if( Worker.CancellationPending )
+      return false;
+
+    //      2.3 Let m_2 = c^dQ mod q.
+    M2ForInverse.Copy( EncryptedNumber );
+    IntMath.ModularPower( M2ForInverse, PrivKInverseExponentDQ, PrimeQ );
+    if( Worker.CancellationPending )
+      return false;
+
+    //      2.4 Let h = qInv ( m_1 - m_2 ) mod p.
+    if( M1ForInverse.ParamIsGreater( M2ForInverse ))
+      M1ForInverse.Add( PrimeP );
+
+    M1MinusM2.Copy( M1ForInverse );
+    IntMath.Subtract( M1MinusM2, M2ForInverse );
+    HForQInv.Copy( M1MinusM2 );
+    IntMath.Multiply( HForQInv, QInv );
+
+    if( PrimeP.ParamIsGreater( HForQInv ))
+      {
+      IntMath.Divide( HForQInv, PrimeP, Quotient, Remainder );
+      HForQInv.Copy( Remainder );
+      }
+
+    // throw( new Exception( "Test this." ));
+
+    //      2.5 Let m = m_2 + hq.
+    DecryptedNumber.Copy( HForQInv );
+    IntMath.Multiply( DecryptedNumber, PrimeQ );
+    DecryptedNumber.Add( M2ForInverse );
+    if( !TestDecryptedNumber.IsEqual( DecryptedNumber ))
+      throw( new Exception( "!TestDecryptedNumber.IsEqual( DecryptedNumber )." ));
+
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "DecryptedNumber: " + IntMath.ToString10( DecryptedNumber ));
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "TestDecryptedNumber: " + IntMath.ToString10( TestDecryptedNumber ));
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "Decrypt with QInv time seconds: " + DecryptTime.GetSecondsToNow().ToString( "N2" ));
+    Worker.ReportProgress( 0, " " );
+    return true;
+    }
+
+
 
 
 
