@@ -31,18 +31,23 @@ namespace ExampleServer
   private Integer M2ForInverse;
   private Integer HForQInv;
   private Integer M1MinusM2;
+  private Integer M1M2SizeDiff;
   private Integer QInv;
   private Integer PrimeToFind;
   private Integer PlainTextMinusCipherToDP;
   private Integer PlainTextMinusCipherToDQ;
   private Integer CipherToDP;
   private Integer CipherToDQ;
-
+  private Integer PreCalcPrimePBase1024;
+  private Integer PreCalcPrimePBaseSquared1024;
+  private Integer PreCalcPrimeQBase1024;
+  private Integer PreCalcPrimeQBaseSquared1024;
   private BackgroundWorker Worker;
   private MakeKeysWorkerInfo WInfo;
   private RNGCryptoServiceProvider RngCsp = new RNGCryptoServiceProvider();
   private ECTime StartTime;
-
+  private int GoodLoopCount = 0;
+  private int BadLoopCount = 0;
 
   private MakeKeysBackground()
     {
@@ -70,6 +75,7 @@ namespace ExampleServer
     M2ForInverse = new Integer();
     HForQInv = new Integer();
     M1MinusM2 = new Integer();
+    M1M2SizeDiff = new Integer();
     QInv = new Integer();
     PrimeToFind = new Integer();
     PlainTextMinusCipherToDP = new Integer();
@@ -77,6 +83,10 @@ namespace ExampleServer
     PlainTextMinusCipherToDQ = new Integer();
     CipherToDP = new Integer();
     CipherToDQ = new Integer();
+    PreCalcPrimePBase1024 = new Integer();
+    PreCalcPrimePBaseSquared1024 = new Integer();
+    PreCalcPrimeQBase1024 = new Integer();
+    PreCalcPrimeQBaseSquared1024 = new Integer();
     }
 
 
@@ -212,9 +222,9 @@ namespace ExampleServer
     // Commonly used exponent for RSA.  It is 2^16 + 1.
     const uint PubKeyExponentUint = 65537;
     PubKeyExponent.SetFromULong( PubKeyExponentUint );
-    const int RandomIndex = 1024 / 32;
+    // const int RandomIndex = 1024 / 32;
     // const int RandomIndex = 768 / 32;
-    // const int RandomIndex = 512 / 32;
+    const int RandomIndex = 512 / 32;
     int ShowBits = RandomIndex * 32;
     // int TestLoops = 0;
 
@@ -310,6 +320,8 @@ namespace ExampleServer
         Worker.ReportProgress( 0, "2) They had a GCD with PubKeyExponent: " + IntMath.ToString10( Gcd ));
         continue;
         }
+
+      SetPreCalcBaseValues( PrimeP, PrimeQ );
 
       PrimePMinus1.Copy( PrimeP );
       IntMath.SubtractULong( PrimePMinus1, 1 );
@@ -546,6 +558,9 @@ namespace ExampleServer
       Worker.ReportProgress( 0, " " );
       Worker.ReportProgress( 1, "PrivKInverseExponent: " + IntMath.ToString10( PrivKInverseExponent ));
 
+      Worker.ReportProgress( 0, " " );
+      Worker.ReportProgress( 0, "GoodLoopCount: " + GoodLoopCount.ToString());
+      Worker.ReportProgress( 0, "BadLoopCount: " + BadLoopCount.ToString());
       // return; // Comment this out to just leave it while( true ) for testing.
       }
     }
@@ -1041,6 +1056,9 @@ namespace ExampleServer
       return false;
       } */
 
+    if( QInv.IsNegative )
+      throw( new Exception( "This is a bug. QInv is negative." ));
+
     Worker.ReportProgress( 0, "QInv is: " + IntMath.ToString10( QInv ));
 
     // HForQInv is now equal to this h:
@@ -1102,21 +1120,67 @@ namespace ExampleServer
       return false;
 
     //      2.4 Let h = qInv ( m_1 - m_2 ) mod p.
+
+    // It's rare for this to go for more than two or three loops.
+    // Doing the division below would be much worse than doing 64 additions
+    // on a number with an Index of 32 because the LongDivide3()
+    // method does a loop for each digit and it does complicated
+    // Multiplying and subtracting on each loop.
+    int HowManyIsOptimal = (PrimeP.GetIndex() * 2); // Exactly how many is optimal?
+    for( int Count = 0; Count < HowManyIsOptimal; Count++ )
+      {
+      GoodLoopCount++;
+      if( M1ForInverse.ParamIsGreater( M2ForInverse ))
+        M1ForInverse.Add( PrimeP );
+      else
+        break;
+
+      }
+
     if( M1ForInverse.ParamIsGreater( M2ForInverse ))
-      M1ForInverse.Add( PrimeP );
+      {
+      BadLoopCount++;
+      // If the above additions are all done it's very rare to get to this
+      // point where it's still negative because the numbers are usually
+      // about the same bit-length.
+      M1M2SizeDiff.Copy( M2ForInverse );
+      IntMath.Subtract( M1M2SizeDiff, M1ForInverse );
+      // Unfortunately this long Divide() has to be done.
+      IntMath.Divide( M1M2SizeDiff, PrimeP, Quotient, Remainder );
+      Quotient.AddULong( 1 );
+      Worker.ReportProgress( 0, "The Quotient for M1M2SizeDiff is: " + IntMath.ToString10( Quotient ));
+      Worker.ReportProgress( 0, "GoodLoopCount: " + GoodLoopCount.ToString());
+      Worker.ReportProgress( 0, "BadLoopCount: " + BadLoopCount.ToString());
+      IntMath.Multiply( Quotient, PrimeP );
+      M1ForInverse.Add( Quotient );
+
+      // If a max of 10 loops above are done:
+      // GoodLoopCount: 25,  BadLoopCount: 1
+      // GoodLoopCount: 20,  BadLoopCount: 1
+      // GoodLoopCount: 159, BadLoopCount: 1
+      // throw( new Exception( "Test. How often does this happen?" ));
+      }
 
     M1MinusM2.Copy( M1ForInverse );
     IntMath.Subtract( M1MinusM2, M2ForInverse );
+
+    if( M1MinusM2.IsNegative )
+      throw( new Exception( "This is a bug. M1MinusM2.IsNegative is true." ));
+
+    if( QInv.IsNegative )
+      throw( new Exception( "This is a bug. QInv.IsNegative is true." ));
+
     HForQInv.Copy( M1MinusM2 );
     IntMath.Multiply( HForQInv, QInv );
+
+    if( HForQInv.IsNegative )
+      throw( new Exception( "This is a bug. HForQInv.IsNegative is true." ));
 
     if( PrimeP.ParamIsGreater( HForQInv ))
       {
       IntMath.Divide( HForQInv, PrimeP, Quotient, Remainder );
       HForQInv.Copy( Remainder );
       }
-
-    // throw( new Exception( "Test this." ));
 
     //      2.5 Let m = m_2 + hq.
     DecryptedNumber.Copy( HForQInv );
@@ -1136,6 +1200,32 @@ namespace ExampleServer
     }
 
 
+
+  internal void SetPreCalcBaseValues( Integer PrimeP, Integer PrimeQ )
+    {
+    PreCalcPrimePBase1024.SetDigitAndClear( 16, 1 );
+    PreCalcPrimePBaseSquared1024.SetDigitAndClear( 16, 1 );
+    PreCalcPrimeQBase1024.SetDigitAndClear( 16, 1 );
+    PreCalcPrimeQBaseSquared1024.SetDigitAndClear( 16, 1 );
+
+    Temp1.Copy( PreCalcPrimePBaseSquared1024 );
+    IntMath.Multiply( PreCalcPrimePBaseSquared1024, Temp1 );
+
+    Temp1.Copy( PreCalcPrimeQBaseSquared1024 );
+    IntMath.Multiply( PreCalcPrimeQBaseSquared1024, Temp1 );
+
+    IntMath.Divide( PreCalcPrimePBase1024, PrimeP, Quotient, Remainder );
+    PreCalcPrimePBase1024.Copy( Remainder );
+
+    IntMath.Divide( PreCalcPrimePBaseSquared1024, PrimeP, Quotient, Remainder );
+    PreCalcPrimePBaseSquared1024.Copy( Remainder );
+
+    IntMath.Divide( PreCalcPrimeQBase1024, PrimeQ, Quotient, Remainder );
+    PreCalcPrimeQBase1024.Copy( Remainder );
+
+    IntMath.Divide( PreCalcPrimeQBaseSquared1024, PrimeQ, Quotient, Remainder );
+    PreCalcPrimeQBaseSquared1024.Copy( Remainder );
+    }
 
 
 
