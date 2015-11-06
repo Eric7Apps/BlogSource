@@ -13,6 +13,11 @@ using System.Security.Cryptography;
 // Euler's Theorem, the basis of the RSA Cryptosystem:
 // https://en.wikipedia.org/wiki/Euler's_theorem
 
+// Public-Key Cryptography Standards (PKCS) #1: RSA Cryptography
+// Specifications Version 2.1
+// http://tools.ietf.org/html/rfc2437
+// http://tools.ietf.org/html/rfc3447
+
 
 namespace ExampleServer
 {
@@ -38,16 +43,18 @@ namespace ExampleServer
   private Integer PlainTextMinusCipherToDQ;
   private Integer CipherToDP;
   private Integer CipherToDQ;
-  private Integer PreCalcPrimePBase1024;
-  private Integer PreCalcPrimePBaseSquared1024;
-  private Integer PreCalcPrimeQBase1024;
-  private Integer PreCalcPrimeQBaseSquared1024;
+  private Integer TestForDecrypt;
   private BackgroundWorker Worker;
   private MakeKeysWorkerInfo WInfo;
   private RNGCryptoServiceProvider RngCsp = new RNGCryptoServiceProvider();
   private ECTime StartTime;
   private int GoodLoopCount = 0;
   private int BadLoopCount = 0;
+  // private const int PrimeIndex = 15; // Approximmately 512-bit primes.
+  // private const int PrimeIndex = 31; // Approximmately 1024-bit primes.
+  private const int PrimeIndex = 63; // Approximmately 2048-bit primes.
+
+
 
   private MakeKeysBackground()
     {
@@ -83,10 +90,7 @@ namespace ExampleServer
     PlainTextMinusCipherToDQ = new Integer();
     CipherToDP = new Integer();
     CipherToDQ = new Integer();
-    PreCalcPrimePBase1024 = new Integer();
-    PreCalcPrimePBaseSquared1024 = new Integer();
-    PreCalcPrimeQBase1024 = new Integer();
-    PreCalcPrimeQBaseSquared1024 = new Integer();
+    TestForDecrypt = new Integer();
     }
 
 
@@ -211,7 +215,6 @@ namespace ExampleServer
     Integer M1 = new Integer();
     Integer M2 = new Integer();
     // Integer HForQInv = new Integer();
-
     Integer ToEncrypt = new Integer();
     Integer PlainTextNumber = new Integer();
     Integer CipherTextNumber = new Integer();
@@ -222,10 +225,7 @@ namespace ExampleServer
     // Commonly used exponent for RSA.  It is 2^16 + 1.
     const uint PubKeyExponentUint = 65537;
     PubKeyExponent.SetFromULong( PubKeyExponentUint );
-    // const int RandomIndex = 1024 / 32;
-    // const int RandomIndex = 768 / 32;
-    const int RandomIndex = 512 / 32;
-    int ShowBits = RandomIndex * 32;
+    int ShowBits = (PrimeIndex + 1) * 32;
     // int TestLoops = 0;
 
     Worker.ReportProgress( 0, "Bits size is: " + ShowBits.ToString());
@@ -243,8 +243,10 @@ namespace ExampleServer
       Thread.Sleep( 1 ); // Give up the time slice.  Let other things on the server run.
 
       // Make two prime factors.
-
-      if( !MakeAPrime( PrimeP, RandomIndex, 20 ))
+      // Normally you'd only make new primes when you pay the Certificate
+      // Authority for a new certificate.  So it happens once a year or once
+      // every three years.
+      if( !MakeAPrime( PrimeP, PrimeIndex, 20 ))
         return;
 
       if( Worker.CancellationPending )
@@ -280,7 +282,7 @@ namespace ExampleServer
         }
 
 
-      if( !MakeAPrime( PrimeQ, RandomIndex, 20 ))
+      if( !MakeAPrime( PrimeQ, PrimeIndex, 20 ))
         return;
 
       if( Worker.CancellationPending )
@@ -321,7 +323,8 @@ namespace ExampleServer
         continue;
         }
 
-      SetPreCalcBaseValues( PrimeP, PrimeQ );
+
+      IntMath.SetupBaseArrays( PrimeP, PrimeQ, Worker );
 
       PrimePMinus1.Copy( PrimeP );
       IntMath.SubtractULong( PrimePMinus1, 1 );
@@ -333,6 +336,7 @@ namespace ExampleServer
       if( Worker.CancellationPending )
         return;
 
+      Worker.ReportProgress( 0, "The Index of Prime P is: " + PrimeP.GetIndex().ToString() );
       Worker.ReportProgress( 0, "Prime P:" );
       Worker.ReportProgress( 0, IntMath.ToString10( PrimeP ));
       Worker.ReportProgress( 0, " " );
@@ -464,7 +468,7 @@ namespace ExampleServer
       // IntMath.TestMultiplicativeInverse( Worker );
 
       // Make a random number to test encryption/decryption.
-      int HowManyBytes = (RandomIndex * 4) + 4;
+      int HowManyBytes = PrimeIndex * 4;
       byte[] RandBytes = MakeRandomBytes( HowManyBytes );
       if( RandBytes == null )
         {
@@ -472,7 +476,7 @@ namespace ExampleServer
         return;
         }
 
-      if( !ToEncrypt.MakeRandomOdd( RandomIndex, RandBytes ))
+      if( !ToEncrypt.MakeRandomOdd( PrimeIndex - 1, RandBytes ))
         {
         Worker.ReportProgress( 0, "Error making random number in MakeKeysBackGround.MakeAPrime()." );
         return;
@@ -519,8 +523,8 @@ namespace ExampleServer
         return;
 
       //////////
-      // Test the optimized way of decrypting:
-      if( !ToEncrypt.MakeRandomOdd( RandomIndex, RandBytes ))
+      // Test the standard optimized way of decrypting:
+      if( !ToEncrypt.MakeRandomOdd( PrimeIndex - 1, RandBytes ))
         {
         Worker.ReportProgress( 0, "Error making random number in MakeKeysBackGround.MakeAPrime()." );
         return;
@@ -1108,16 +1112,36 @@ namespace ExampleServer
     Worker.ReportProgress( 0, "EncryptedNumber: " + IntMath.ToString10( EncryptedNumber ));
 
     //      2.2 Let m_1 = c^dP mod p.
-    M1ForInverse.Copy( EncryptedNumber );
-    IntMath.ModularPower( M1ForInverse, PrivKInverseExponentDP, PrimeP );
+    TestForDecrypt.Copy( EncryptedNumber );
+    IntMath.ModularPowerModPrimeP( TestForDecrypt, PrivKInverseExponentDP, PrimeP );
+    int MaxIndex = IntMath.GetMaxModPowerIndex();
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "MaxIndex: " + MaxIndex.ToString());
+    Worker.ReportProgress( 0, " " );
+
+
+    // M1ForInverse.Copy( EncryptedNumber );
+    // IntMath.ModularPowerOld( M1ForInverse, PrivKInverseExponentDP, PrimeP );
     if( Worker.CancellationPending )
       return false;
 
+    M1ForInverse.Copy( TestForDecrypt );
+    // if( !M1ForInverse.IsEqual( TestForDecrypt ))
+      // throw( new Exception( "TestForDecrypt isn't right." ));
+
     //      2.3 Let m_2 = c^dQ mod q.
-    M2ForInverse.Copy( EncryptedNumber );
-    IntMath.ModularPower( M2ForInverse, PrivKInverseExponentDQ, PrimeQ );
+    TestForDecrypt.Copy( EncryptedNumber );
+    IntMath.ModularPowerModPrimeQ( TestForDecrypt, PrivKInverseExponentDQ, PrimeQ );
+
+    // M2ForInverse.Copy( EncryptedNumber );
+    // IntMath.ModularPowerOld( M2ForInverse, PrivKInverseExponentDQ, PrimeQ );
     if( Worker.CancellationPending )
       return false;
+
+    M2ForInverse.Copy( TestForDecrypt );
+    // if( !M2ForInverse.IsEqual( TestForDecrypt ))
+      // throw( new Exception( "TestForDecrypt isn't right for M2." ));
+
 
     //      2.4 Let h = qInv ( m_1 - m_2 ) mod p.
 
@@ -1126,15 +1150,18 @@ namespace ExampleServer
     // on a number with an Index of 32 because the LongDivide3()
     // method does a loop for each digit and it does complicated
     // Multiplying and subtracting on each loop.
-    int HowManyIsOptimal = (PrimeP.GetIndex() * 2); // Exactly how many is optimal?
+    int HowManyIsOptimal = (PrimeP.GetIndex() * 3); // Exactly how many is optimal?
     for( int Count = 0; Count < HowManyIsOptimal; Count++ )
       {
-      GoodLoopCount++;
       if( M1ForInverse.ParamIsGreater( M2ForInverse ))
+        {
+        GoodLoopCount++;
         M1ForInverse.Add( PrimeP );
+        }
       else
+        {
         break;
-
+        }
       }
 
     if( M1ForInverse.ParamIsGreater( M2ForInverse ))
@@ -1158,7 +1185,16 @@ namespace ExampleServer
       // GoodLoopCount: 25,  BadLoopCount: 1
       // GoodLoopCount: 20,  BadLoopCount: 1
       // GoodLoopCount: 159, BadLoopCount: 1
-      // throw( new Exception( "Test. How often does this happen?" ));
+
+      // When it's set to HowManyIsOptimal = (PrimeP.GetIndex() * 2).
+      // GoodLoopCount: 418, BadLoopCount: 1
+      // The Quotient for M1M2SizeDiff is: 24
+
+      // GoodLoopCount: 111, BadLoopCount: 1
+      // The Quotient for M1M2SizeDiff is: 61
+
+      // GoodLoopCount: 380, BadLoopCount: 1
+      // The Quotient for M1M2SizeDiff is: 2
       }
 
     M1MinusM2.Copy( M1ForInverse );
@@ -1199,33 +1235,6 @@ namespace ExampleServer
     return true;
     }
 
-
-
-  internal void SetPreCalcBaseValues( Integer PrimeP, Integer PrimeQ )
-    {
-    PreCalcPrimePBase1024.SetDigitAndClear( 16, 1 );
-    PreCalcPrimePBaseSquared1024.SetDigitAndClear( 16, 1 );
-    PreCalcPrimeQBase1024.SetDigitAndClear( 16, 1 );
-    PreCalcPrimeQBaseSquared1024.SetDigitAndClear( 16, 1 );
-
-    Temp1.Copy( PreCalcPrimePBaseSquared1024 );
-    IntMath.Multiply( PreCalcPrimePBaseSquared1024, Temp1 );
-
-    Temp1.Copy( PreCalcPrimeQBaseSquared1024 );
-    IntMath.Multiply( PreCalcPrimeQBaseSquared1024, Temp1 );
-
-    IntMath.Divide( PreCalcPrimePBase1024, PrimeP, Quotient, Remainder );
-    PreCalcPrimePBase1024.Copy( Remainder );
-
-    IntMath.Divide( PreCalcPrimePBaseSquared1024, PrimeP, Quotient, Remainder );
-    PreCalcPrimePBaseSquared1024.Copy( Remainder );
-
-    IntMath.Divide( PreCalcPrimeQBase1024, PrimeQ, Quotient, Remainder );
-    PreCalcPrimeQBase1024.Copy( Remainder );
-
-    IntMath.Divide( PreCalcPrimeQBaseSquared1024, PrimeQ, Quotient, Remainder );
-    PreCalcPrimeQBaseSquared1024.Copy( Remainder );
-    }
 
 
 
