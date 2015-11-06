@@ -679,6 +679,8 @@ namespace ExampleServer
 
 
 
+
+
   // This is used in some algorithms to set one particular
   // digit and have all other digits set to zero.
   internal void SetDigitAndClear( int Where, ulong ToSet )
@@ -1005,6 +1007,32 @@ namespace ExampleServer
     // This is likely to have one or more leading zero bytes,
     // but not necessarily.
     return Result;
+    }
+
+
+
+
+  internal void ShiftForPreCalc( int HowMany )
+    {
+    if( Index < HowMany )
+      throw( new Exception( "Exception in ShiftForPreCalc(). HowMany > Index." ));
+
+    try
+    {
+    for( int Count = 0; Count < Index; Count++ )
+      {
+      if( (Count + HowMany) > Index )
+        break;
+
+      D[Count] = D[Count + HowMany];
+      }
+
+    Index -= HowMany;
+    }
+    catch( Exception Except )
+      {
+      throw( new Exception( "Exception in ShiftForPreCalc(). " + Except.Message ));
+      }
     }
 
 
