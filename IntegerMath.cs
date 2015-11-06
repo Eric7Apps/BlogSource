@@ -27,6 +27,7 @@ namespace ExampleServer
   {
   private long[] SignedD; // Signed digits for use in subtraction.
   private ulong[,] M; // Scratch pad, just like you would do on paper.
+  private ulong[] Scratch; // Scratch pad, just like you would do on paper.
   // I don't want to create any of these numbers inside a loop
   // so they are created just once here.
   private Integer ToDivide;
@@ -84,6 +85,8 @@ namespace ExampleServer
     {
     SignedD = new long[Integer.DigitArraySize];
     M = new ulong[Integer.DigitArraySize, Integer.DigitArraySize];
+    Scratch = new ulong[Integer.DigitArraySize];
+
     // These numbers are created ahead of time so that they don't have
     // to be created over and over again within a loop where the 
     // calculations are being done.
@@ -480,7 +483,7 @@ namespace ExampleServer
     {
     for( int Column = 0; Column <= Result.GetIndex(); Column++ )
       M[Column, 0] = ToMul * Result.GetD( Column );
-     
+
     // Add these up with a carry.
     Result.SetD( 0, M[0, 0] & 0xFFFFFFFF );
     ulong Carry = M[0, 0] >> 32;
@@ -498,13 +501,39 @@ namespace ExampleServer
 
     if( Carry != 0 )
       {
-      Result.IncrementIndex();
-        // throw( new Exception( "MultiplyUInt() overflow." ));
-      
+      Result.IncrementIndex(); // This might throw an exception if it overflows.
       Result.SetD( Result.GetIndex(), Carry );
       }
     }
 
+
+
+  private void MultiplyUIntFromCopy( Integer Result, Integer FromCopy, ulong ToMul )
+    {
+    int FromCopyIndex = FromCopy.GetIndex();
+    // The compiler knows that FromCopyIndex doesn't change here so
+    // it can do its range checking on the for-loop before it starts.
+
+    Result.SetIndex( FromCopyIndex );
+    for( int Column = 0; Column <= FromCopyIndex; Column++ )
+      Scratch[Column] = ToMul * FromCopy.GetD( Column );
+
+    // Add these up with a carry.
+    Result.SetD( 0, Scratch[0] & 0xFFFFFFFF );
+    ulong Carry = Scratch[0] >> 32;
+    for( int Column = 1; Column <= FromCopyIndex; Column++ )
+      {
+      ulong Total = Scratch[Column] + Carry;
+      Result.SetD( Column, Total & 0xFFFFFFFF );
+      Carry = Total >> 32;
+      }
+
+    if( Carry != 0 )
+      {
+      Result.IncrementIndex(); // This might throw an exception if it overflows.
+      Result.SetD( FromCopyIndex + 1, Carry );
+      }
+    }
 
 
 
@@ -2318,6 +2347,10 @@ namespace ExampleServer
         }
       }
 
+    // When AddByGeneralBaseArrays() gets called it multiplies a number
+    // by a uint sized digit.  So that can make the result one digit bigger
+    // than GeneralBase.  Then when they are added up you can get carry
+    // bits that can make it a little bigger.
     // If by chance you got a carry bit on _every_ addition that was done
     // in AddByGeneralBaseArrays() then this number could increase in size
     // by 1 bit for each addition that was done.  It would take 32 bits for
@@ -2883,8 +2916,8 @@ namespace ExampleServer
     // Normally this would only get called when you start up your server since
     // PrimeP and PrimeQ almost never change.
 
-    Worker.ReportProgress( 0, " " );
-    Worker.ReportProgress( 0, "Top of SetupBaseArrays." );
+    // Worker.ReportProgress( 0, " " );
+    // Worker.ReportProgress( 0, "Top of SetupBaseArrays." );
 
     // If you multiply two 32-digit numbers together that makes a number
     // that's 64 digits.
@@ -2899,35 +2932,30 @@ namespace ExampleServer
     MultiplyUInt( Base, 256 );
     MultiplyUInt( Base, 256 );
     MultiplyUInt( Base, 256 );
-    Worker.ReportProgress( 0, "Base hex: " + Base.GetAsHexString());
+    // Worker.ReportProgress( 0, "Base hex: " + Base.GetAsHexString());
     // It is 0x100000000. 0x1 00 00 00 00
     // Which is 4,294,967,296.
 
     BaseValue.SetFromULong( 1 );
     for( int Count = 0; Count < HowMany; Count++ )
       {
-      Worker.ReportProgress( 0, " " );
-      Worker.ReportProgress( 0, "Count: " + Count.ToString() );
-      Worker.ReportProgress( 0, "BaseValue: " + ToString10( BaseValue ));
+      // Worker.ReportProgress( 0, " " );
+      // Worker.ReportProgress( 0, "Count: " + Count.ToString() );
+      // Worker.ReportProgress( 0, "BaseValue: " + ToString10( BaseValue ));
 
       BaseArrayP[Count] = new Integer();
       BaseArrayQ[Count] = new Integer();
       BaseWorkArray1[Count] = new Integer();
 
-      BaseArrayP[Count].Copy( BaseValue );
-      Divide( BaseArrayP[Count], PrimeP, Quotient, Remainder );
+      Divide( BaseValue, PrimeP, Quotient, Remainder );
       BaseArrayP[Count].Copy( Remainder ); // The base value mod PrimeP
-      Worker.ReportProgress( 0, "BaseArrayP: " + ToString10( BaseArrayP[Count] ));
+      // Worker.ReportProgress( 0, "BaseArrayP: " + ToString10( BaseArrayP[Count] ));
 
-      BaseArrayQ[Count].Copy( BaseValue );
-      Divide( BaseArrayQ[Count], PrimeQ, Quotient, Remainder );
+      Divide( BaseValue, PrimeQ, Quotient, Remainder );
       BaseArrayQ[Count].Copy( Remainder ); // The base value mod PrimeQ
-      Worker.ReportProgress( 0, "BaseArrayQ: " + ToString10( BaseArrayQ[Count] ));
 
       Multiply( BaseValue, Base );
       }
-
-    Worker.ReportProgress( 0, " " );
     }
 
 
@@ -2963,9 +2991,19 @@ namespace ExampleServer
       if( BaseWorkArray2[Count] == null )
         BaseWorkArray2[Count] = new Integer();
 
-      GeneralBaseArray[Count].Copy( BaseValue );
-      Divide( GeneralBaseArray[Count], GeneralBase, Quotient, Remainder );
+      Divide( BaseValue, GeneralBase, Quotient, Remainder );
       GeneralBaseArray[Count].Copy( Remainder );
+
+      // If this ever happened it would be a bug because
+      // the point of copying the Remainder in to BaseValue
+      // is to keep it down to a reasonable size.
+      // And Base here is one bit bigger than a uint.
+      if( Base.ParamIsGreater( Quotient ))
+        throw( new Exception( "Bug. This never happens: Base.ParamIsGreater( Quotient )" ));
+
+      // Keep it to mod GeneralBase so Divide() doesn't
+      // have to do so much work.
+      BaseValue.Copy( Remainder );
 
       Multiply( BaseValue, Base );
       }
@@ -3017,14 +3055,29 @@ namespace ExampleServer
       throw( new Exception( "SetupGeneralBaseArray() should have already been called." ));
 
     Result.SetToZero();
-    // The number of operations done in this loop is proportional to the 
-    // square of the Index of ToAdd.  But the size of the Index of ToAdd
-    // is about the size of the modulus, not the size of the modulus 
-    // squared.
+
+    // The Index size of ToAdd is usually double the length of the modulus
+    // this is reducing it to.  Like if you multiply P and Q to get N, then
+    // the ToAdd that comes in here is about the size of N and the GeneralBase
+    // is about the size of P.  So the amount of work done here is proportional
+    // to P times N.  (Like Big O of P times N.)
     for( int Count = 0; Count <= ToAdd.GetIndex(); Count++ )
       {
-      BaseWorkArray2[Count].Copy( GeneralBaseArray[Count] );
-      MultiplyUInt( BaseWorkArray2[Count], ToAdd.GetD( Count ));
+      // The size of the numbers in GeneralBaseArray are all less than
+      // the size of GeneralBase.
+      // BaseWorkArray2[Count].Copy( GeneralBaseArray[Count] );
+
+      // This multiplication by a uint is with a number that is not bigger
+      // than GeneralBase.  Compare this with the two full Muliply()
+      // calls done on each digit of the quotient in LongDivide3().
+      // MultiplyUInt( BaseWorkArray2[Count], ToAdd.GetD( Count ));
+
+      MultiplyUIntFromCopy( BaseWorkArray2[Count], GeneralBaseArray[Count], ToAdd.GetD( Count ));
+
+
+      // Result doesn't get much bigger than the length of GeneralBase
+      // plus the length of the uint.  But with (possibly) a few carry
+      // bits added.
       Result.Add( BaseWorkArray2[Count] );
       }
 
