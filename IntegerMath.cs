@@ -35,8 +35,7 @@ namespace ExampleServer
   private Integer ToDivideKeep;
   private Integer DivideByKeep;
   private Integer DivideBy;
-  private Integer Test1;
-  private Integer Test2;
+  private Integer TestForDivide1;
   private Integer TempAdd1;
   private Integer TempAdd2;
   private Integer TempSub1;
@@ -47,7 +46,8 @@ namespace ExampleServer
   private Integer TempY;
   private Integer XForModPower;
   private Integer ExponentCopy;
-  private Integer TestForModInverse;
+  private Integer TestForModInverse1;
+  private Integer TestForModInverse2;
   private Integer U0;
   private Integer U1;
   private Integer U2;
@@ -61,9 +61,19 @@ namespace ExampleServer
   private Integer SubtractTemp2;
   private Integer Fermat1;
   private Integer Fermat2;
+  private Integer TestFermat;
   private Integer TempEuclid1;
   private Integer TempEuclid2;
   private Integer TempEuclid3;
+  private Integer TestForBits;
+  private Integer TestForModPower;
+  private int MaxModPowerIndex = 0;
+
+  private Integer[] BaseArrayP;
+  private Integer[] BaseArrayQ;
+  private Integer[] GeneralBaseArray;
+  private Integer[] BaseWorkArray1;
+  private Integer[] BaseWorkArray2;
 
   private int PrimeArrayLast = 0;
   private uint[] PrimeArray;
@@ -83,8 +93,7 @@ namespace ExampleServer
     ToDivideKeep = new Integer();
     DivideByKeep = new Integer();
     DivideBy = new Integer();
-    Test1 = new Integer();
-    Test2 = new Integer();
+    TestForDivide1 = new Integer();
     TempAdd1 = new Integer();
     TempAdd2 = new Integer();
     TempSub1 = new Integer();
@@ -95,7 +104,8 @@ namespace ExampleServer
     GcdY = new Integer();
     XForModPower = new Integer();
     ExponentCopy = new Integer();
-    TestForModInverse = new Integer();
+    TestForModInverse1 = new Integer();
+    TestForModInverse2 = new Integer();
     U0 = new Integer();
     U1 = new Integer();
     U2 = new Integer();
@@ -109,9 +119,12 @@ namespace ExampleServer
     SubtractTemp2 = new Integer();
     Fermat1 = new Integer();
     Fermat2 = new Integer();
+    TestFermat = new Integer();
     TempEuclid1 = new Integer();
     TempEuclid2 = new Integer();
     TempEuclid3 = new Integer();
+    TestForBits = new Integer();
+    TestForModPower = new Integer();
 
     MakePrimeArray();
     }
@@ -463,7 +476,7 @@ namespace ExampleServer
 
 
 
-  private void MultiplyUInt( Integer Result, uint ToMul )
+  private void MultiplyUInt( Integer Result, ulong ToMul )
     {
     for( int Column = 0; Column <= Result.GetIndex(); Column++ )
       M[Column, 0] = ToMul * Result.GetD( Column );
@@ -655,9 +668,7 @@ namespace ExampleServer
     Result.SetIndex( TotalIndex );
     if( Carry != 0 )
       {
-      Result.IncrementIndex();
-      //  throw( new Exception( "Multiply() overflow." ));
-      
+      Result.IncrementIndex(); // This can throw an exception if it overflowed the index.
       Result.SetD( Result.GetIndex(), Carry );
       }
 
@@ -673,7 +684,6 @@ namespace ExampleServer
   // The 1/N distributes over the polynomial: 
   // (ax3 * (1/N)) + (bx2 * (1/N)) + (cx * (1/N)) + (d * (1/N))
   // (ax3/N) + (bx2/N) + (cx/N) + (d/N)
-
   // The algorithm goes from left to right and reduces that polynomial
   // expression.  So it starts with Quotient being a copy of ToDivide
   // and then it reduces Quotient from left to right.
@@ -1024,7 +1034,6 @@ namespace ExampleServer
 
 
 
-
   internal void SetFromString( Integer Result, string InString )
     {
     Base10Number Base10N = new Base10Number();
@@ -1045,7 +1054,6 @@ namespace ExampleServer
       MultiplyULong( Tens, 10 );
       }
     }
-
 
 
 
@@ -1082,7 +1090,6 @@ namespace ExampleServer
       return Result;
 
     }
-  
 
 
 
@@ -1168,7 +1175,6 @@ namespace ExampleServer
 
 
 
-
   internal static bool FirstBytesAreQuadRes( uint Test )
     {
     // Is this number a square mod 2^12?
@@ -1243,7 +1249,6 @@ namespace ExampleServer
       default: return false;
       }
     }
-
 
 
 
@@ -1329,7 +1334,6 @@ namespace ExampleServer
 
 
 
-
   internal ulong FindULSqrRoot( ulong ToMatch ) 
     {
     // Start OneBit with the highest possible bit.
@@ -1362,7 +1366,6 @@ namespace ExampleServer
     
     return Result;
     }
-
 
 
 
@@ -1413,7 +1416,6 @@ namespace ExampleServer
 
 
 
-
   // This is another optimization.  This is used when the top digit
   // is 1 and all of the other digits are zero.
   // This is effectively just a shift-left operation.
@@ -1442,11 +1444,10 @@ namespace ExampleServer
       }
       */
     }
-  
 
 
 
-    internal void Divide( Integer ToDivideOriginal,
+  internal void Divide( Integer ToDivideOriginal,
                         Integer DivideByOriginal,
                         Integer Quotient,
                         Integer Remainder )
@@ -1506,8 +1507,6 @@ namespace ExampleServer
     // return LongDivide2( ToDivide, DivideBy, Quotient, Remainder );
     LongDivide3( ToDivide, DivideBy, Quotient, Remainder );
     }
-
-
 
 
 
@@ -1572,7 +1571,6 @@ namespace ExampleServer
 
 
 
-
   private void TestDivideBits( ulong MaxValue,
                                bool IsTop,
                                int TestIndex,
@@ -1586,8 +1584,8 @@ namespace ExampleServer
 
     // When you're not testing you wouldn't want to be creating these
     // and allocating the RAM for them each time it's called.
-    Integer Test1 = new Integer();
-    Integer Test2 = new Integer();
+    // Integer Test1 = new Integer();
+    // Integer Test2 = new Integer();
 
     uint BitTest = 0x80000000;
     for( int BitCount = 31; BitCount >= 0; BitCount-- )
@@ -1605,35 +1603,34 @@ namespace ExampleServer
       // Is it only doing the multiplication for the top digit?
       if( IsTop )
         {
-        Test1.Copy( Quotient );
-        Test1.SetD( TestIndex, Test1.GetD( TestIndex ) | BitTest );
-        MultiplyTop( Test1, DivideBy );
+        TestForBits.Copy( Quotient );
+        TestForBits.SetD( TestIndex, TestForBits.GetD( TestIndex ) | BitTest );
+        MultiplyTop( TestForBits, DivideBy );
 
-        
-        /////////////////////
+        /*
         Test2.Copy( Quotient );
         Test2.SetD( TestIndex, Test2.GetD( TestIndex ) | BitTest );
         Multiply( Test2, DivideBy );
 
         if( !Test1.IsEqual( Test2 ))
           throw( new Exception( "!Test1.IsEqual( Test2 ) in TestDivideBits()." ));
-        ///////////////////////
+        */
          
         }
       else
         {
-        Test1.Copy( Quotient );
-        Test1.SetD( TestIndex, Test1.GetD( TestIndex ) | BitTest );
-        Multiply( Test1, DivideBy );
+        TestForBits.Copy( Quotient );
+        TestForBits.SetD( TestIndex, TestForBits.GetD( TestIndex ) | BitTest );
+        Multiply( TestForBits, DivideBy );
         }
 
-      if( Test1.ParamIsGreaterOrEq( ToDivide ))
+      if( TestForBits.ParamIsGreaterOrEq( ToDivide ))
         Quotient.SetD( TestIndex, Quotient.GetD( TestIndex ) | BitTest ); // Keep the bit.
         
       BitTest >>= 1;
       } 
     }
-    
+
 
 
   /*
@@ -1757,7 +1754,6 @@ namespace ExampleServer
 
 
 
-
     // If you multiply the numerator and the denominator by the same amount
     // then the quotient is still the same.  By shifting left (multiplying by twos)
     // the MaxValue upper limit is more accurate.
@@ -1788,25 +1784,16 @@ namespace ExampleServer
                             Integer Quotient,
                             Integer Remainder )
     {
-    // int ErrorPoint = 0;
-
-    // try
-    // {
-
     int TestIndex = ToDivide.GetIndex() - DivideBy.GetIndex();
     if( TestIndex < 0 )
-      {
-      // "TestIndex < 0 in Divide3."
-      // Result.SetToZero();
-      return;
-      }
+      throw( new Exception( "TestIndex < 0 in Divide3." ));
 
     if( TestIndex != 0 )
       {
       // Is 1 too high?
-      Test1.SetDigitAndClear( TestIndex, 1 );
-      MultiplyTopOne( Test1, DivideBy );
-      if( ToDivide.ParamIsGreater( Test1 ))
+      TestForDivide1.SetDigitAndClear( TestIndex, 1 );
+      MultiplyTopOne( TestForDivide1, DivideBy );
+      if( ToDivide.ParamIsGreater( TestForDivide1 ))
         TestIndex--;
 
       }
@@ -1820,8 +1807,6 @@ namespace ExampleServer
     ToDivide.ShiftLeft( ShiftBy ); // Multiply the numerator and the denominator
     DivideBy.ShiftLeft( ShiftBy ); // by the same amount.
 
-    // ErrorPoint = 1;
-
     ulong MaxValue;
     if( (ToDivide.GetIndex() - 1) > (DivideBy.GetIndex() + TestIndex) )
       {
@@ -1833,10 +1818,6 @@ namespace ExampleServer
       MaxValue |= ToDivide.GetD( ToDivide.GetIndex() - 1 );
       }
 
-    // ErrorPoint = 2;
-
-    // Notice how this ToMatch is different from the theory from the sixties.
-    // which assumes some other Base.
     ulong Denom = DivideBy.GetD( DivideBy.GetIndex());
     if( Denom != 0 )
       MaxValue = MaxValue / Denom;
@@ -1846,31 +1827,25 @@ namespace ExampleServer
     if( MaxValue > 0xFFFFFFFF )
       MaxValue = 0xFFFFFFFF;
 
-    ////////////////////////
     if( MaxValue == 0 )
-      {
       throw( new Exception( "MaxValue is zero at the top in LongDivide3()." ));
-      }
-    ////////////////////
 
-    // ulong TestGap;
-    
     Quotient.SetDigitAndClear( TestIndex, 1 );
     Quotient.SetD( TestIndex, 0 );
 
-    Test1.Copy( Quotient );
-    Test1.SetD( TestIndex, MaxValue );
-    MultiplyTop( Test1, DivideBy );
+    TestForDivide1.Copy( Quotient );
+    TestForDivide1.SetD( TestIndex, MaxValue );
+    MultiplyTop( TestForDivide1, DivideBy );
 
     /*
     Test2.Copy( Quotient );
     Test2.SetD( TestIndex, MaxValue );
     Multiply( Test2, DivideBy );
-    if( !Test2.IsEqual( Test1 ))
-      throw( new Exception( "In Divide3() !IsEqual( Test2, Test1 )" ));
+    if( !Test2.IsEqual( TestForDivide1 ))
+      throw( new Exception( "In Divide3() !IsEqual( Test2, TestForDivide1 )" ));
     */
 
-    if( Test1.ParamIsGreaterOrEq( ToDivide ))
+    if( TestForDivide1.ParamIsGreaterOrEq( ToDivide ))
       {
       // ToMatchExactCount++;
       // Most of the time (roughly 5 out of every 6 times) 
@@ -1883,16 +1858,12 @@ namespace ExampleServer
       // already be low enough before it got here.
       MaxValue--;
 
-      ////////////////
       if( MaxValue == 0 )
         throw( new Exception( "After decrement: MaxValue is zero in LongDivide3()." ));
-      ////////////////
-      
-      // ErrorPoint = 3;
 
-      Test1.Copy( Quotient );
-      Test1.SetD( TestIndex, MaxValue );
-      MultiplyTop( Test1, DivideBy );
+      TestForDivide1.Copy( Quotient );
+      TestForDivide1.SetD( TestIndex, MaxValue );
+      MultiplyTop( TestForDivide1, DivideBy );
 
       /*
       Test2.Copy( Quotient );
@@ -1902,7 +1873,7 @@ namespace ExampleServer
         throw( new Exception( "Top one. !Test2.IsEqual( Test1 ) in LongDivide3()" ));
       */
     
-      if( Test1.ParamIsGreaterOrEq( ToDivide ))
+      if( TestForDivide1.ParamIsGreaterOrEq( ToDivide ))
         {
         // ToMatchDecCount++;
         Quotient.SetD( TestIndex, MaxValue );
@@ -1930,57 +1901,36 @@ namespace ExampleServer
       // uint size:         4,294,967,295 uint
       }
 
-    // ErrorPoint = 4;
-
     // If it's done.
     if( TestIndex == 0 )
       {
-      Test1.Copy( Quotient );
-      Multiply( Test1, DivideByKeep );
+      TestForDivide1.Copy( Quotient );
+      Multiply( TestForDivide1, DivideByKeep );
       Remainder.Copy( ToDivideKeep );
-      Subtract( Remainder, Test1 );
+      Subtract( Remainder, TestForDivide1 );
+      //if( DivideByKeep.ParamIsGreater( Remainder ))
+        // throw( new Exception( "Remainder > DivideBy in LongDivide3()." ));
 
-      /////////////////////////////
-      if( DivideByKeep.ParamIsGreater( Remainder ))
-        {
-        ///////////
-        throw( new Exception( "Remainder > DivideBy in LongDivide3()." ));
-        }
-      //////////////////////////////
-
-      // if( Remainder.IsZero())
-        return; // true;
-      // else
-        // return false;
-
+      return;
       }
 
     // Now do the rest of the digits.
     TestIndex--;
     while( true )
       {
-      // ErrorPoint = 5;
-      Test1.Copy( Quotient );
-      Multiply( Test1, DivideBy );
-
-      //////////////////////////
-      if( ToDivide.ParamIsGreater( Test1 ))
-        {
-        throw( new Exception( "Bug here in LongDivide3()." ));
-        }
-      ///////////////////////////
+      TestForDivide1.Copy( Quotient );
+      // First Multiply() for each digit.
+      Multiply( TestForDivide1, DivideBy );
+      // if( ToDivide.ParamIsGreater( TestForDivide1 ))
+      //   throw( new Exception( "Bug here in LongDivide3()." ));
 
       Remainder.Copy( ToDivide );
-      Subtract( Remainder, Test1 );
+      Subtract( Remainder, TestForDivide1 );
       MaxValue = Remainder.GetD( Remainder.GetIndex()) << 32;
-
-      // ErrorPoint = 6;
 
       int CheckIndex = Remainder.GetIndex() - 1;
       if( CheckIndex > 0 )
         MaxValue |= Remainder.GetD( CheckIndex );
-
-      // ErrorPoint = 7;
 
       Denom = DivideBy.GetD( DivideBy.GetIndex());
       if( Denom != 0 )
@@ -1991,11 +1941,11 @@ namespace ExampleServer
       if( MaxValue > 0xFFFFFFFF )
         MaxValue = 0xFFFFFFFF;
 
-      Test1.Copy( Quotient );
-      Test1.SetD( TestIndex, MaxValue );
-      Multiply( Test1, DivideBy );
-
-      if( Test1.ParamIsGreaterOrEq( ToDivide ))
+      TestForDivide1.Copy( Quotient );
+      TestForDivide1.SetD( TestIndex, MaxValue );
+      // There's a minimum of two full Multiply() operations per digit.
+      Multiply( TestForDivide1, DivideBy );
+      if( TestForDivide1.ParamIsGreaterOrEq( ToDivide ))
         {
         // Most of the time this MaxValue estimate is exactly right:
         // ToMatchExactCount++;
@@ -2004,10 +1954,10 @@ namespace ExampleServer
       else
         {
         MaxValue--;
-        Test1.Copy( Quotient );
-        Test1.SetD( TestIndex, MaxValue );
-        Multiply( Test1, DivideBy );
-        if( Test1.ParamIsGreaterOrEq( ToDivide ))
+        TestForDivide1.Copy( Quotient );
+        TestForDivide1.SetD( TestIndex, MaxValue );
+        Multiply( TestForDivide1, DivideBy );
+        if( TestForDivide1.ParamIsGreaterOrEq( ToDivide ))
           {
           // ToMatchDecCount++;
           Quotient.SetD( TestIndex, MaxValue );
@@ -2029,41 +1979,20 @@ namespace ExampleServer
           }
         }
 
-
       if( TestIndex == 0 )
         break;
 
       TestIndex--;
       }
 
-    // ErrorPoint = 8;
-
-    //////////
-    Test1.Copy( Quotient );
-    Multiply( Test1, DivideByKeep );
+    TestForDivide1.Copy( Quotient );
+    Multiply( TestForDivide1, DivideByKeep );
     Remainder.Copy( ToDivideKeep );
-    Subtract( Remainder, Test1 );
+    Subtract( Remainder, TestForDivide1 );
 
-    /////////////////////////////////
-    if( DivideByKeep.ParamIsGreater( Remainder ))
-      {
-      throw( new Exception( "Remainder > DivideBy in LongDivide3()." ));
-      }
-    /////////////////////////////////
+    // if( DivideByKeep.ParamIsGreater( Remainder ))
+      // throw( new Exception( "Remainder > DivideBy in LongDivide3()." ));
 
-    // if( Remainder.IsZero())
-      return; //  true;
-    // else
-      // return false;
-
-    /*
-    }
-    catch( Exception ) // Except )
-      {
-      // "Bug in Divide3: " + ErrorPoint.ToString() + "\r\n\r\n" + Except.Message
-      return false;
-      }
-    */
     }
 
 
@@ -2241,93 +2170,8 @@ namespace ExampleServer
 
 
 
-
-  // This is the recursive one.
-  // I wrote these based on the "psuedo code" for it in Wikipedia.
-  // http://en.wikipedia.org/wiki/Square-and-multiply_algorithm
   /*
-  internal void ModularPower1( Integer Result, Integer Exponent, Integer ModN )
-    {
-    // This gets called recursively for as many bits as there are in the exponent.
-    //////////
-    From Wikipedia:
-    Function exp-by-squaring(x,n)
-     if n=0 then return 1;
-     else if n=1 then return x;
-     else if n is even then return exp-by-squaring(x*x, n/2);
-     else if n is odd then return x * exp-by-squaring(x*x, (n-1)/2).
-    //////////
-
-
-    if( Result.IsZero())
-      return; // With Result still zero.
-
-    if( Result.IsEqual( ModN ))
-      {
-      // It is congruent to zero % ModN.
-      Result.SetToZero();
-      return;
-      }
-
-    // Result is not zero at this point.
-    if( Exponent.IsZero() )
-      {
-      Result.SetFromULong( 1 );
-      return;
-      }
-
-    if( ModN.ParamIsGreater( Result ))
-      {
-      Divide( Result, ModN, Quotient, Remainder );
-      Result.Copy( Remainder );
-      }
-
-    if( Exponent.IsEqualToULong( 1 ))
-      {
-      // Result stays the same.
-      return;
-      }
-
-    Integer ResultCopy = new Integer();
-    ResultCopy.Copy( Result );
-    Integer ExponentCopy = new Integer();
-    ExponentCopy.Copy( Exponent );
-
-    if( (Exponent.GetD( 0 ) & 1) == 0 )
-      {
-      // If the exponent is even.
-      // Call this function recursively.
-      // Use _local_ copies of Integers.
-      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
-      Multiply( ResultCopy, Result ); // Square it.
-      ModularPower1( ResultCopy, ExponentCopy, ModN );
-      Result.Copy( ResultCopy );
-      }
-    else
-      {
-      // If it's odd.
-      // else if n is odd then return x * exp-by-squaring(x*x, (n-1)/2).
-
-      // The exponent is more than 1 here.
-      SubtractULong( ExponentCopy, 1 );
-      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
-
-      Multiply( ResultCopy, Result ); // Square it.
-      ModularPower1( ResultCopy, ExponentCopy, ModN );
-      Multiply( Result, ResultCopy );
-      }
-
-    if( ModN.ParamIsGreater( Result ))
-      {
-      Divide( Result, ModN, Quotient, Remainder );
-      Result.Copy( Remainder );
-      }
-    }
-    */
-
-
-
-  internal void ModularPower2( Integer Result, Integer Exponent, Integer ModN )
+  internal void ModularPowerOld( Integer Result, Integer Exponent, Integer ModN )
     {
     if( Result.IsZero())
       return; // With Result still zero.
@@ -2359,59 +2203,294 @@ namespace ExampleServer
       }
 
     XForModPower.Copy( Result );
-
-    /*
-    From Wikipedia Ruby example:
-    def power(x,n)
-      result = 1
-      while n.nonzero?
-        if n[0].nonzero?
-          result *= x
-          n -= 1
-        end
-      x *= x
-      n /= 2
-      end
-
-    return result
-    end
-    */
-
     ExponentCopy.Copy( Exponent );
-
     Result.SetFromULong( 1 );
     while( !ExponentCopy.IsZero())
       {
-      // If it's odd.
+      // If the bit is 1, then do a lot more work here.
+      if( (ExponentCopy.GetD( 0 ) & 1) == 1 )
+        {
+        // This is a multiplication for every _bit_.  So a 1024-bit
+        // modulus means this gets called roughly 512 times.
+        // The commonly used public exponent is 65537, which has
+        // only two bits set to 1, the rest are all zeros.  But the
+        // private key exponents are long randomish numbers.
+        // (See: Hamming Weight.)
+        Multiply( Result, XForModPower );
+        SubtractULong( ExponentCopy, 1 );
+        // Usually it's true that the Result is greater than ModN.
+        if( ModN.ParamIsGreater( Result ))
+          {
+          // Here is where that really long division algorithm gets used a
+          // lot in a loop.  And this Divide() gets called roughly about
+          // 512 times.
+          Divide( Result, ModN, Quotient, Remainder );
+          Result.Copy( Remainder );
+          }
+        }
+
+      // Square it.
+      // This is a multiplication for every _bit_.  So a 1024-bit
+      // modulus means this gets called 1024 times.
+      Multiply( XForModPower, XForModPower );
+      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
+      if( ModN.ParamIsGreater( XForModPower ))
+        {
+        // And this Divide() gets called about 1024 times.
+        Divide( XForModPower, ModN, Quotient, Remainder );
+        XForModPower.Copy( Remainder );
+        }
+      }
+    }
+    */
+
+
+
+  internal void ModularPower( Integer Result, Integer Exponent, Integer GeneralBase )
+    {
+    if( Result.IsZero())
+      return; // With Result still zero.
+
+    if( Result.IsEqual( GeneralBase ))
+      {
+      // It is congruent to zero % ModN.
+      Result.SetToZero();
+      return;
+      }
+
+    // Result is not zero at this point.
+    if( Exponent.IsZero() )
+      {
+      Result.SetFromULong( 1 );
+      return;
+      }
+
+    if( GeneralBase.ParamIsGreater( Result ))
+      {
+      Divide( Result, GeneralBase, Quotient, Remainder );
+      Result.Copy( Remainder );
+      }
+
+    if( Exponent.IsEqualToULong( 1 ))
+      {
+      // Result stays the same.
+      return;
+      }
+
+    SetupGeneralBaseArray( GeneralBase );
+
+    XForModPower.Copy( Result );
+    ExponentCopy.Copy( Exponent );
+    int TestIndex = 0;
+    Result.SetFromULong( 1 );
+    while( !ExponentCopy.IsZero())
+      {
       if( (ExponentCopy.GetD( 0 ) & 1) == 1 )
         {
         Multiply( Result, XForModPower );
         SubtractULong( ExponentCopy, 1 );
+        if( GeneralBase.ParamIsGreater( Result ))
+          {
+          TestForModPower.Copy( Result );
+          TestIndex = AddByGeneralBaseArrays( TestForModPower, Result );
+          if( TestIndex > MaxModPowerIndex )
+            MaxModPowerIndex = TestIndex;
+
+          Result.Copy( TestForModPower );
+          // Divide( Result, GeneralBase, Quotient, Remainder );
+          // Result.Copy( Remainder );
+          }
         }
 
       // Square it.
       Multiply( XForModPower, XForModPower );
       ExponentCopy.ShiftRight( 1 ); // Divide by 2.
-
-      if( ModN.ParamIsGreater( Result ))
+      if( GeneralBase.ParamIsGreater( XForModPower ))
         {
-        // Here is where that really long division algorithm gets used a
-        // lot in a loop.  There are ways to optimize this. (Barrett Reduction?)
-        // The best way would be to use a "modular aware" multiplication
-        // algorithm so that the multiplication itself (or squaring) gets
-        // done in a way so that this division never has to happen.
-        // It would be a Karatsuba-like algorithm that uses smaller numbers
-        // for its calculations.
-        Divide( Result, ModN, Quotient, Remainder );
-        Result.Copy( Remainder );
-        }
+        TestForModPower.Copy( XForModPower );
+        TestIndex = AddByGeneralBaseArrays( TestForModPower, XForModPower );
+        if( TestIndex > MaxModPowerIndex )
+          MaxModPowerIndex = TestIndex;
 
-      if( ModN.ParamIsGreater( XForModPower ))
-        {
-        Divide( XForModPower, ModN, Quotient, Remainder );
-        XForModPower.Copy( Remainder );
+        XForModPower.Copy( TestForModPower );
+        // Divide( XForModPower, GeneralBase, Quotient, Remainder );
+        // XForModPower.Copy( Remainder );
         }
       }
+
+    // If by chance you got a carry bit on _every_ addition that was done
+    // in AddByGeneralBaseArrays() then this number could increase in size
+    // by 1 bit for each addition that was done.  It would take 32 bits for
+    // HowBig to increase by 1.
+    int HowBig = Result.GetIndex() - GeneralBase.GetIndex();
+    if( HowBig > 2 )
+      throw( new Exception( "The difference in index size was more than 2. Diff: " + HowBig.ToString() ));
+
+    // So this Quotient has only one or two 32-bit digits in it.
+    Divide( Result, GeneralBase, Quotient, Remainder );
+    Result.Copy( Remainder );
+    }
+
+
+
+  internal void ModularPowerModPrimeP( Integer Result, Integer Exponent, Integer PrimeP )
+    {
+    if( Result.IsZero())
+      return; // With Result still zero.
+
+    if( Result.IsEqual( PrimeP ))
+      {
+      // It is congruent to zero % ModN.
+      Result.SetToZero();
+      return;
+      }
+
+    // Result is not zero at this point.
+    if( Exponent.IsZero() )
+      {
+      Result.SetFromULong( 1 );
+      return;
+      }
+
+    if( PrimeP.ParamIsGreater( Result ))
+      {
+      Divide( Result, PrimeP, Quotient, Remainder );
+      Result.Copy( Remainder );
+      }
+
+    if( Exponent.IsEqualToULong( 1 ))
+      {
+      // Result stays the same.
+      return;
+      }
+
+    XForModPower.Copy( Result );
+    ExponentCopy.Copy( Exponent );
+
+    int TestIndex = 0;
+    Result.SetFromULong( 1 );
+    while( !ExponentCopy.IsZero())
+      {
+      if( (ExponentCopy.GetD( 0 ) & 1) == 1 )
+        {
+        Multiply( Result, XForModPower );
+        SubtractULong( ExponentCopy, 1 );
+        if( PrimeP.ParamIsGreater( Result ))
+          {
+          TestForModPower.Copy( Result );
+          TestIndex = AddByBaseArraysP( TestForModPower, Result );
+          if( TestIndex > MaxModPowerIndex )
+            MaxModPowerIndex = TestIndex;
+
+          Result.Copy( TestForModPower );
+          // Divide( Result, PrimeP, Quotient, Remainder );
+          // Result.Copy( Remainder );
+          }
+        }
+
+      // Square it.
+      Multiply( XForModPower, XForModPower );
+      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
+      if( PrimeP.ParamIsGreater( XForModPower ))
+        {
+        TestForModPower.Copy( XForModPower );
+        TestIndex = AddByBaseArraysP( TestForModPower, XForModPower );
+        if( TestIndex > MaxModPowerIndex )
+          MaxModPowerIndex = TestIndex;
+
+        XForModPower.Copy( TestForModPower );
+        // Divide( XForModPower, PrimeP, Quotient, Remainder );
+        // XForModPower.Copy( Remainder );
+        }
+      }
+
+    Divide( Result, PrimeP, Quotient, Remainder );
+    Result.Copy( Remainder );
+    }
+
+
+
+  internal void ModularPowerModPrimeQ( Integer Result, Integer Exponent, Integer PrimeQ )
+    {
+    if( Result.IsZero())
+      return; // With Result still zero.
+
+    if( Result.IsEqual( PrimeQ ))
+      {
+      // It is congruent to zero % ModN.
+      Result.SetToZero();
+      return;
+      }
+
+    // Result is not zero at this point.
+    if( Exponent.IsZero() )
+      {
+      Result.SetFromULong( 1 );
+      return;
+      }
+
+    if( PrimeQ.ParamIsGreater( Result ))
+      {
+      Divide( Result, PrimeQ, Quotient, Remainder );
+      Result.Copy( Remainder );
+      }
+
+    if( Exponent.IsEqualToULong( 1 ))
+      {
+      // Result stays the same.
+      return;
+      }
+
+    XForModPower.Copy( Result );
+    ExponentCopy.Copy( Exponent );
+
+    int TestIndex = 0;
+    Result.SetFromULong( 1 );
+    while( !ExponentCopy.IsZero())
+      {
+      if( (ExponentCopy.GetD( 0 ) & 1) == 1 )
+        {
+        Multiply( Result, XForModPower );
+        SubtractULong( ExponentCopy, 1 );
+        if( PrimeQ.ParamIsGreater( Result ))
+          {
+          TestForModPower.Copy( Result );
+          TestIndex = AddByBaseArraysQ( TestForModPower, Result );
+          if( TestIndex > MaxModPowerIndex )
+            MaxModPowerIndex = TestIndex;
+
+          Result.Copy( TestForModPower );
+          // Divide( Result, PrimeQ, Quotient, Remainder );
+          // Result.Copy( Remainder );
+          }
+        }
+
+      // Square it.
+      Multiply( XForModPower, XForModPower );
+      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
+      if( PrimeQ.ParamIsGreater( XForModPower ))
+        {
+        TestForModPower.Copy( XForModPower );
+        TestIndex = AddByBaseArraysQ( TestForModPower, XForModPower );
+        if( TestIndex > MaxModPowerIndex )
+          MaxModPowerIndex = TestIndex;
+
+        XForModPower.Copy( TestForModPower );
+        // Divide( XForModPower, PrimeQ, Quotient, Remainder );
+        // XForModPower.Copy( Remainder );
+        }
+      }
+
+    Divide( Result, PrimeQ, Quotient, Remainder );
+    Result.Copy( Remainder );
+    }
+
+
+
+
+  internal int GetMaxModPowerIndex()
+    {
+    return MaxModPowerIndex;
     }
 
 
@@ -2457,6 +2536,7 @@ namespace ExampleServer
       GcdY.Copy( Remainder );
       }
     }
+
 
 
   internal void TestMultiplicativeInverse( BackgroundWorker Worker )
@@ -2593,10 +2673,10 @@ namespace ExampleServer
       }
 
     // Worker.ReportProgress( 0, "MultInverse: " + ToString10( MultInverse ));
-    Test1.Copy( MultInverse );
-    Test2.Copy( X );
-    Multiply( Test1, Test2 );
-    Divide( Test1, Modulus, Quotient, Remainder );
+    TestForModInverse1.Copy( MultInverse );
+    TestForModInverse2.Copy( X );
+    Multiply( TestForModInverse1, TestForModInverse2 );
+    Divide( TestForModInverse1, Modulus, Quotient, Remainder );
     if( !Remainder.IsOne())  // By the definition of Multiplicative inverse:
       throw( new Exception( "Bug. MultInverse is wrong: " + ToString10( Remainder )));
 
@@ -2635,7 +2715,6 @@ namespace ExampleServer
     Worker.ReportProgress( 0, "VerifyEuclid() returned true." );
     return true;
     }
-
 
 
 
@@ -2689,12 +2768,19 @@ namespace ExampleServer
     // 5^3 = 125.  125 - 5 = 120.  A multiple of 5.
     // 2^7 = 128.  128 - 2 = 7 * 18 (a multiple of 7.)
 
+    // Fermat1.Copy( ToTest );
+    // SubtractULong( Fermat1, 1 );
+    // Fermat2.SetFromULong( Base );
+    // ModularPowerOld( Fermat2, Fermat1, ToTest );
+
     Fermat1.Copy( ToTest );
     SubtractULong( Fermat1, 1 );
-    Fermat2.SetFromULong( Base );
+    TestFermat.SetFromULong( Base );
+    ModularPower( TestFermat, Fermat1, ToTest );
+    // if( !TestFermat.IsEqual( Fermat2 ))
+      // throw( new Exception( "!TestFermat.IsEqual( Fermat2 )." ));
 
-    ModularPower2( Fermat2, Fermat1, ToTest );
-    if( Fermat2.IsOne())
+    if( TestFermat.IsOne())
       return true; // It passed the test. It _might_ be a prime.
     else
       return false; // It is _definitely_ a composite number.
@@ -2775,9 +2861,9 @@ namespace ExampleServer
     if( Worker.CancellationPending )
       return false;
 
-    TestForModInverse.Copy( ToFind );
-    MultiplyULong( TestForModInverse, KnownNumberULong );
-    Divide( TestForModInverse, Modulus, Quotient, Remainder );
+    TestForModInverse1.Copy( ToFind );
+    MultiplyULong( TestForModInverse1, KnownNumberULong );
+    Divide( TestForModInverse1, Modulus, Quotient, Remainder );
     if( !Remainder.IsOne())
       {
       // The definition is that it's congruent to 1 mod the modulus,
@@ -2787,6 +2873,167 @@ namespace ExampleServer
       }
 
     return true;
+    }
+
+
+
+
+  internal void SetupBaseArrays( Integer PrimeP, Integer PrimeQ, BackgroundWorker Worker )
+    {
+    // Normally this would only get called when you start up your server since
+    // PrimeP and PrimeQ almost never change.
+
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "Top of SetupBaseArrays." );
+
+    // If you multiply two 32-digit numbers together that makes a number
+    // that's 64 digits.
+    int HowMany = (PrimeP.GetIndex() * 2) + 10; // PrimeQ is the same length.
+    BaseArrayP = new Integer[HowMany];
+    BaseArrayQ = new Integer[HowMany];
+    BaseWorkArray1 = new Integer[HowMany];
+
+    Integer Base = new Integer();
+    Integer BaseValue = new Integer();
+    Base.SetFromULong( 256 );
+    MultiplyUInt( Base, 256 );
+    MultiplyUInt( Base, 256 );
+    MultiplyUInt( Base, 256 );
+    Worker.ReportProgress( 0, "Base hex: " + Base.GetAsHexString());
+    // It is 0x100000000. 0x1 00 00 00 00
+    // Which is 4,294,967,296.
+
+    BaseValue.SetFromULong( 1 );
+    for( int Count = 0; Count < HowMany; Count++ )
+      {
+      Worker.ReportProgress( 0, " " );
+      Worker.ReportProgress( 0, "Count: " + Count.ToString() );
+      Worker.ReportProgress( 0, "BaseValue: " + ToString10( BaseValue ));
+
+      BaseArrayP[Count] = new Integer();
+      BaseArrayQ[Count] = new Integer();
+      BaseWorkArray1[Count] = new Integer();
+
+      BaseArrayP[Count].Copy( BaseValue );
+      Divide( BaseArrayP[Count], PrimeP, Quotient, Remainder );
+      BaseArrayP[Count].Copy( Remainder ); // The base value mod PrimeP
+      Worker.ReportProgress( 0, "BaseArrayP: " + ToString10( BaseArrayP[Count] ));
+
+      BaseArrayQ[Count].Copy( BaseValue );
+      Divide( BaseArrayQ[Count], PrimeQ, Quotient, Remainder );
+      BaseArrayQ[Count].Copy( Remainder ); // The base value mod PrimeQ
+      Worker.ReportProgress( 0, "BaseArrayQ: " + ToString10( BaseArrayQ[Count] ));
+
+      Multiply( BaseValue, Base );
+      }
+
+    Worker.ReportProgress( 0, " " );
+    }
+
+
+
+  internal void SetupGeneralBaseArray( Integer GeneralBase )
+    {
+    int HowMany = (GeneralBase.GetIndex() * 2) + 10;
+    if( GeneralBaseArray == null )
+      {
+      GeneralBaseArray = new Integer[HowMany];
+      BaseWorkArray2 = new Integer[HowMany];
+      }
+
+    if( GeneralBaseArray.Length < HowMany )
+      {
+      GeneralBaseArray = new Integer[HowMany];
+      BaseWorkArray2 = new Integer[HowMany];
+      }
+
+    Integer Base = new Integer();
+    Integer BaseValue = new Integer();
+    Base.SetFromULong( 256 );
+    MultiplyUInt( Base, 256 );
+    MultiplyUInt( Base, 256 );
+    MultiplyUInt( Base, 256 );
+
+    BaseValue.SetFromULong( 1 );
+    for( int Count = 0; Count < HowMany; Count++ )
+      {
+      if( GeneralBaseArray[Count] == null )
+        GeneralBaseArray[Count] = new Integer();
+
+      if( BaseWorkArray2[Count] == null )
+        BaseWorkArray2[Count] = new Integer();
+
+      GeneralBaseArray[Count].Copy( BaseValue );
+      Divide( GeneralBaseArray[Count], GeneralBase, Quotient, Remainder );
+      GeneralBaseArray[Count].Copy( Remainder );
+
+      Multiply( BaseValue, Base );
+      }
+    }
+
+
+
+  private int AddByBaseArraysP( Integer Result, Integer ToAdd )
+    {
+    if( BaseArrayP == null )
+      throw( new Exception( "SetupBaseArrays() should have already been called once when the server started." ));
+
+    Result.SetToZero();
+    for( int Count = 0; Count <= ToAdd.GetIndex(); Count++ )
+      {
+      BaseWorkArray1[Count].Copy( BaseArrayP[Count] );
+      MultiplyUInt( BaseWorkArray1[Count], ToAdd.GetD( Count ));
+      Result.Add( BaseWorkArray1[Count] );
+      }
+
+    return Result.GetIndex();
+    }
+
+
+
+  private int AddByBaseArraysQ( Integer Result, Integer ToAdd )
+    {
+    if( BaseArrayQ == null )
+      throw( new Exception( "SetupBaseArrays() should have already been called once when the server started." ));
+
+    Result.SetToZero();
+    for( int Count = 0; Count <= ToAdd.GetIndex(); Count++ )
+      {
+      BaseWorkArray1[Count].Copy( BaseArrayQ[Count] );
+      MultiplyUInt( BaseWorkArray1[Count], ToAdd.GetD( Count ));
+      Result.Add( BaseWorkArray1[Count] );
+      }
+
+    return Result.GetIndex();
+    }
+
+
+
+  private int AddByGeneralBaseArrays( Integer Result, Integer ToAdd )
+    {
+    try
+    {
+    if( GeneralBaseArray == null )
+      throw( new Exception( "SetupGeneralBaseArray() should have already been called." ));
+
+    Result.SetToZero();
+    // The number of operations done in this loop is proportional to the 
+    // square of the Index of ToAdd.  But the size of the Index of ToAdd
+    // is about the size of the modulus, not the size of the modulus 
+    // squared.
+    for( int Count = 0; Count <= ToAdd.GetIndex(); Count++ )
+      {
+      BaseWorkArray2[Count].Copy( GeneralBaseArray[Count] );
+      MultiplyUInt( BaseWorkArray2[Count], ToAdd.GetD( Count ));
+      Result.Add( BaseWorkArray2[Count] );
+      }
+
+    return Result.GetIndex();
+    }
+    catch( Exception Except )
+      {
+      throw( new Exception( "Exception in AddByGeneralBaseArrays(): " + Except.Message ));
+      }
     }
 
 
