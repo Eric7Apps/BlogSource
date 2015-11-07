@@ -20,15 +20,102 @@ namespace ExampleServer
   private Integer[] AccumulateArray;
   private Integer Quotient;
   private Integer Remainder;
+  private Integer XForModPower;
+  private Integer ExponentCopy;
+  private Integer TempForModPower;
 
 
 
   internal ModularReduction()
     {
     IntMath = new IntegerMath();
+    XForModPower = new Integer();
+    ExponentCopy = new Integer();
     Quotient = new Integer();
     Remainder = new Integer();
+    TempForModPower = new Integer();
     }
+
+
+
+  internal void ModularPower( Integer Result, Integer Exponent, Integer GeneralBase )
+    {
+    if( Result.IsZero())
+      return; // With Result still zero.
+
+    if( Result.IsEqual( GeneralBase ))
+      {
+      // It is congruent to zero % ModN.
+      Result.SetToZero();
+      return;
+      }
+
+    // Result is not zero at this point.
+    if( Exponent.IsZero() )
+      {
+      Result.SetFromULong( 1 );
+      return;
+      }
+
+    if( GeneralBase.ParamIsGreater( Result ))
+      {
+      // throw( new Exception( "This is not supposed to be input for RSA plain text." ));
+      IntMath.Divide( Result, GeneralBase, Quotient, Remainder );
+      Result.Copy( Remainder );
+      }
+
+    if( Exponent.IsEqualToULong( 1 ))
+      {
+      // Result stays the same.
+      return;
+      }
+
+    // This could also be called ahead of time if the base (the modulus)
+    // doesn't change.  Like when your public key doesn't change.
+    SetupGeneralBaseArray( GeneralBase );
+
+    XForModPower.Copy( Result );
+    ExponentCopy.Copy( Exponent );
+    int TestIndex = 0;
+    Result.SetFromULong( 1 );
+    while( true )
+      {
+      if( (ExponentCopy.GetD( 0 ) & 1) == 1 ) // If the bottom bit is 1.
+        {
+        IntMath.Multiply( Result, XForModPower );
+        AddByGeneralBaseArrays( TempForModPower, Result );
+        Result.Copy( TempForModPower );
+        }
+
+      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
+      if( ExponentCopy.IsZero())
+        break;
+
+      // Square it.
+      IntMath.Multiply( XForModPower, XForModPower );
+      AddByGeneralBaseArrays( TempForModPower, XForModPower );
+      XForModPower.Copy( TempForModPower );
+      }
+
+    // When AddByGeneralBaseArrays() gets called it multiplies a number
+    // by a uint sized digit.  So that can make the result one digit bigger
+    // than GeneralBase.  Then when they are added up you can get carry
+    // bits that can make it a little bigger.
+    // If by chance you got a carry bit on _every_ addition that was done
+    // in AddByGeneralBaseArrays() then this number could increase in size
+    // by 1 bit for each addition that was done.  It would take 32 bits of
+    // carrying for HowBig to increase by 1.
+    // See HowManyToAdd in AddByGeneralBaseArrays() for why this check is done.
+    int HowBig = Result.GetIndex() - GeneralBase.GetIndex();
+    if( HowBig > 2 ) // I have not seen this happen yet.
+      throw( new Exception( "The difference in index size was more than 2. Diff: " + HowBig.ToString() ));
+
+    // So this Quotient has only one or two 32-bit digits in it.
+    // And this Divide() is only called once at the end.  Not in the loop.
+    IntMath.Divide( Result, GeneralBase, Quotient, Remainder );
+    Result.Copy( Remainder );
+    }
+
 
 
   // This is the Modular Reduction algorithm.  It reduces
@@ -46,7 +133,7 @@ namespace ExampleServer
     // this is reducing it to.  Like if you multiply P and Q to get N, then
     // the ToAdd that comes in here is about the size of N and the GeneralBase
     // is about the size of P.  So the amount of work done here is proportional
-    // to P times N.  (Like Big O of P times N.)
+    // to P times N.
 
     int HowManyToAdd = ToAdd.GetIndex() + 1;
     int BiggestIndex = 0;
@@ -58,12 +145,11 @@ namespace ExampleServer
       // than GeneralBase.  Compare this with the two full Muliply()
       // calls done on each digit of the quotient in LongDivide3().
 
-      // BaseAccumulate is set to a new value here.
+      // AccumulateArray[Count] is set to a new value here.
       int CheckIndex = IntMath.MultiplyUIntFromCopy( AccumulateArray[Count], GeneralBaseArray[Count], ToAdd.GetD( Count ));
       if( CheckIndex > BiggestIndex )
         BiggestIndex = CheckIndex;
 
-      // Result.Add( BaseAccumulate ); // Add up each Accumulate value.
       }
 
     // Add all of them up at once.
@@ -102,6 +188,7 @@ namespace ExampleServer
     // You know what a, b, c... are.
     // But you don't know what x, y, and z are.
     // So how do you reverse this and get x, y and z?
+    // Is this reversible?
 
     Result.OrganizeDigits();
     }
@@ -112,11 +199,40 @@ namespace ExampleServer
     }
 
 
+  /* This is in the Integer.cs file.  After all the adds are done
+     the carry has to be done to reorganize it.  See HowManyToAdd in
+     AddByGeneralBaseArrays() to see how much carrying should be done.
+  internal void OrganizeDigits()
+    {
+    // Tell the compiler these aren't going to change for the for-loop.
+    int LocalIndex = Index;
+
+    // After they've been added, reorganize it.
+    ulong Carry = D[0] >> 32;
+    D[0] = D[0] & 0xFFFFFFFF;
+    for( int Count = 1; Count <= LocalIndex; Count++ )
+      {
+      ulong Total = Carry + D[Count];
+      D[Count] = Total & 0xFFFFFFFF;
+      Carry = Total >> 32;
+      }
+
+    if( Carry != 0 )
+      {
+      Index++;
+      if( Index >= DigitArraySize )
+        throw( new Exception( "Integer.Add() overflow." ));
+
+      D[Index] = Carry;
+      }
+    }
+    */
+
 
   internal void SetupGeneralBaseArray( Integer GeneralBase )
     {
     // The input to the accumulator can be twice the bit length of GeneralBase.
-    int HowMany = ((GeneralBase.GetIndex() + 1) * 2) + 10; // Plus some extra for carries...
+    int HowMany = ((GeneralBase.GetIndex() + 1) * 2) + 10; // Plus some extra for carries...how many?
     if( GeneralBaseArray == null )
       {
       GeneralBaseArray = new Integer[HowMany];
