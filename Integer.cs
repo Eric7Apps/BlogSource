@@ -377,19 +377,23 @@ namespace ExampleServer
       return;
       }
 
-    if( Index < ToAdd.Index )
+    // Tell the compiler these aren't going to change for the for-loop.
+    int LocalIndex = Index;
+    int LocalToAddIndex = ToAdd.Index;
+
+    if( LocalIndex < ToAdd.Index )
       {
-      for( int Count = Index + 1; Count <= ToAdd.Index; Count++ )
+      for( int Count = LocalIndex + 1; Count <= LocalToAddIndex; Count++ )
         D[Count] = ToAdd.D[Count]; 
 
-      for( int Count = 0; Count <= Index; Count++ )
+      for( int Count = 0; Count <= LocalIndex; Count++ )
         D[Count] += ToAdd.D[Count];
 
       Index = ToAdd.Index;
       }
     else
       { 
-      for( int Count = 0; Count <= ToAdd.Index; Count++ )
+      for( int Count = 0; Count <= LocalToAddIndex; Count++ )
         D[Count] += ToAdd.D[Count];
 
       }
@@ -397,7 +401,8 @@ namespace ExampleServer
     // After they've been added, reorganize it.
     ulong Carry = D[0] >> 32;
     D[0] = D[0] & 0xFFFFFFFF;
-    for( int Count = 1; Count <= Index; Count++ )
+    LocalIndex = Index;
+    for( int Count = 1; Count <= LocalIndex; Count++ )
       {
       ulong Total = Carry + D[Count];
       D[Count] = Total & 0xFFFFFFFF;
@@ -406,7 +411,6 @@ namespace ExampleServer
 
     if( Carry != 0 )
       {
-      // IncrementIndex();
       Index++;
       if( Index >= DigitArraySize )
         throw( new Exception( "Integer.Add() overflow." ));
@@ -415,6 +419,32 @@ namespace ExampleServer
       }
     }
 
+
+
+  internal void OrganizeDigits()
+    {
+    // Tell the compiler these aren't going to change for the for-loop.
+    int LocalIndex = Index;
+
+    // After they've been added, reorganize it.
+    ulong Carry = D[0] >> 32;
+    D[0] = D[0] & 0xFFFFFFFF;
+    for( int Count = 1; Count <= LocalIndex; Count++ )
+      {
+      ulong Total = Carry + D[Count];
+      D[Count] = Total & 0xFFFFFFFF;
+      Carry = Total >> 32;
+      }
+
+    if( Carry != 0 )
+      {
+      Index++;
+      if( Index >= DigitArraySize )
+        throw( new Exception( "Integer.Add() overflow." ));
+
+      D[Index] = Carry;
+      }
+    }
 
 
 
