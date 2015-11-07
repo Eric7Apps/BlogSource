@@ -22,13 +22,15 @@ using System.Security.Cryptography;
 // using System.Net.Security; // SslStream
 // using System.Security;
 // ICryptoTransform
+// using System.Security.Cryptography.X509Certificates;
+
 
 
 namespace ExampleServer
 {
   public partial class MainForm : Form
   {
-  internal const string VersionDate = "10/22/2015";
+  internal const string VersionDate = "11/7/2015";
   internal const int VersionNumber = 09; // 0.9
   internal const string MessageBoxTitle = "Eric's Example Server";
   private System.Threading.Mutex SingleInstanceMutex = null;
@@ -48,7 +50,8 @@ namespace ExampleServer
   internal DomainX509Data X509Data;
   private RNGCryptoServiceProvider CryptoRand;
   private MakeRSAKeysForm MakeKeysForm;
-
+  private LowExponentSecurityForm LowExponentForm;
+  private bool Cancelled = false;
 
 
   public MainForm()
@@ -70,8 +73,7 @@ namespace ExampleServer
 
     LaPlataData1 = new LaPlataData( this );
     WebFData = new WebFilesData( this );
-    X509Data = new DomainX509Data( this );
-
+    X509Data = new DomainX509Data( this, GetDataDirectory() + "Certificates.txt" );
 
     if( !CheckSingleInstance())
       return;
@@ -82,6 +84,7 @@ namespace ExampleServer
     TLSListenForm = new TLSListenerForm( this );
     CustomerMsgForm = new CustomerMessageForm( this );
     MakeKeysForm = new MakeRSAKeysForm( this );
+    LowExponentForm = new LowExponentSecurityForm( this );
 
     CheckTimer.Interval = 5 * 60 * 1000;
     CheckTimer.Start();
@@ -172,7 +175,9 @@ namespace ExampleServer
       return false;
 
     Application.DoEvents();
-    // if it's cancelled...
+    if( Cancelled )
+      return false;
+
     return true;
     }
 
@@ -281,10 +286,11 @@ namespace ExampleServer
         }
       }
 
-    NetStats.SaveToFile();
-
     IsClosing = true;
     CheckTimer.Stop();
+
+    X509Data.WriteToTextFile();
+    NetStats.SaveToFile();
 
     if( WebListenForm != null )
       {
@@ -339,6 +345,20 @@ namespace ExampleServer
         }
 
       MakeKeysForm = null;
+      }
+
+    if( LowExponentForm != null )
+      {
+      if( !LowExponentForm.IsDisposed )
+        {
+        LowExponentForm.Hide();
+        
+        // This could take a while:
+        LowExponentForm.FreeEverything();
+        LowExponentForm.Dispose();
+        }
+
+      LowExponentForm = null;
       }
     }
 
@@ -446,7 +466,7 @@ namespace ExampleServer
 
 
 
-    
+
   internal void ShowMakeKeysFormStatus( string Status )
     {
     if( IsClosing )
@@ -501,12 +521,17 @@ namespace ExampleServer
     StartTimer.Stop();
 
     LaPlataData1.ReadFromFile();
+    ShowStatus( "Finished reading La Plata data." );
+
     ReadWebFileData();
+    ShowStatus( "Finished reading web files." );
+
     X509Data.ImportFromOriginalListFile();
-    ShowStatus( "Reading data is finished." );
+    ShowStatus( "Finished reading X509 data list." );
 
     WebListenForm.StartServer();
     TLSListenForm.StartServer();
+    ShowStatus( "After the servers were started." );
     }
 
 
@@ -584,6 +609,30 @@ namespace ExampleServer
     MakeKeysForm.BringToFront();
     }
 
+
+  private void MainForm_KeyDown(object sender, KeyEventArgs e)
+    {
+    if( e.KeyCode == Keys.Escape ) //  && (e.Alt || e.Control || e.Shift))
+      {
+      ShowStatus( "Cancelled." );
+      Cancelled = true;
+      }
+    }
+
+
+
+  private void showLowExponentTestToolStripMenuItem_Click( object sender, EventArgs e )
+    {
+    if( LowExponentForm == null )
+      return;
+
+    if( LowExponentForm.IsDisposed )
+      return;
+
+    LowExponentForm.Show();
+    LowExponentForm.WindowState = FormWindowState.Normal;
+    LowExponentForm.BringToFront();
+    }
 
 
   }
