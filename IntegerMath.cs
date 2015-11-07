@@ -68,13 +68,14 @@ namespace ExampleServer
   private Integer TempEuclid3;
   private Integer TestForBits;
   private Integer TestForModPower;
+  private Integer TempForModPower;
   private int MaxModPowerIndex = 0;
-
+  private Integer OriginalValue;
   private Integer[] BaseArrayP;
   private Integer[] BaseArrayQ;
   private Integer[] GeneralBaseArray;
+  private Integer[] AccumulateArray;
   private Integer[] BaseWorkArray1;
-  private Integer[] BaseWorkArray2;
 
   private int PrimeArrayLast = 0;
   private uint[] PrimeArray;
@@ -128,6 +129,8 @@ namespace ExampleServer
     TempEuclid3 = new Integer();
     TestForBits = new Integer();
     TestForModPower = new Integer();
+    TempForModPower = new Integer();
+    OriginalValue = new Integer();
 
     MakePrimeArray();
     }
@@ -192,6 +195,7 @@ namespace ExampleServer
         {
         PrimeArray[PrimeArrayLast] = TestN;
         // if( (PrimeArrayLast + 100) > PrimeArray.Length )
+        // if( PrimeArrayLast < 100 )
           // StatusString += PrimeArray[PrimeArrayLast].ToString() + ",\r\n";
 
         PrimeArrayLast++;
@@ -479,7 +483,7 @@ namespace ExampleServer
 
 
 
-  private void MultiplyUInt( Integer Result, ulong ToMul )
+  internal void MultiplyUInt( Integer Result, ulong ToMul )
     {
     for( int Column = 0; Column <= Result.GetIndex(); Column++ )
       M[Column, 0] = ToMul * Result.GetD( Column );
@@ -508,7 +512,7 @@ namespace ExampleServer
 
 
 
-  private void MultiplyUIntFromCopy( Integer Result, Integer FromCopy, ulong ToMul )
+  internal int MultiplyUIntFromCopy( Integer Result, Integer FromCopy, ulong ToMul )
     {
     int FromCopyIndex = FromCopy.GetIndex();
     // The compiler knows that FromCopyIndex doesn't change here so
@@ -533,6 +537,8 @@ namespace ExampleServer
       Result.IncrementIndex(); // This might throw an exception if it overflows.
       Result.SetD( FromCopyIndex + 1, Carry );
       }
+
+    return Result.GetIndex();
     }
 
 
@@ -2277,6 +2283,11 @@ namespace ExampleServer
 
   internal void ModularPower( Integer Result, Integer Exponent, Integer GeneralBase )
     {
+    // The square and multiply method is in Wikipedia:
+    // https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+    // x^n = (x^2)^((n - 1)/2) if n is odd.
+    // x^n = (x^2)^(n/2)       if n is even.
+
     if( Result.IsZero())
       return; // With Result still zero.
 
@@ -2296,6 +2307,7 @@ namespace ExampleServer
 
     if( GeneralBase.ParamIsGreater( Result ))
       {
+      // throw( new Exception( "This is not supposed to be input for RSA plain text." ));
       Divide( Result, GeneralBase, Quotient, Remainder );
       Result.Copy( Remainder );
       }
@@ -2312,39 +2324,23 @@ namespace ExampleServer
     ExponentCopy.Copy( Exponent );
     int TestIndex = 0;
     Result.SetFromULong( 1 );
-    while( !ExponentCopy.IsZero())
+    while( true )
       {
-      if( (ExponentCopy.GetD( 0 ) & 1) == 1 )
+      if( (ExponentCopy.GetD( 0 ) & 1) == 1 ) // If the bottom bit is 1.
         {
         Multiply( Result, XForModPower );
-        SubtractULong( ExponentCopy, 1 );
-        if( GeneralBase.ParamIsGreater( Result ))
-          {
-          TestForModPower.Copy( Result );
-          TestIndex = AddByGeneralBaseArrays( TestForModPower, Result );
-          if( TestIndex > MaxModPowerIndex )
-            MaxModPowerIndex = TestIndex;
-
-          Result.Copy( TestForModPower );
-          // Divide( Result, GeneralBase, Quotient, Remainder );
-          // Result.Copy( Remainder );
-          }
+        AddByGeneralBaseArrays( TempForModPower, Result );
+        Result.Copy( TempForModPower );
         }
+
+      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
+      if( ExponentCopy.IsZero())
+        break;
 
       // Square it.
       Multiply( XForModPower, XForModPower );
-      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
-      if( GeneralBase.ParamIsGreater( XForModPower ))
-        {
-        TestForModPower.Copy( XForModPower );
-        TestIndex = AddByGeneralBaseArrays( TestForModPower, XForModPower );
-        if( TestIndex > MaxModPowerIndex )
-          MaxModPowerIndex = TestIndex;
-
-        XForModPower.Copy( TestForModPower );
-        // Divide( XForModPower, GeneralBase, Quotient, Remainder );
-        // XForModPower.Copy( Remainder );
-        }
+      AddByGeneralBaseArrays( TempForModPower, XForModPower );
+      XForModPower.Copy( TempForModPower );
       }
 
     // When AddByGeneralBaseArrays() gets called it multiplies a number
@@ -2719,7 +2715,6 @@ namespace ExampleServer
 
 
 
-
   private bool VerifyEuclid( Integer X, Integer Y, Integer W0, Integer W1, Integer W2, BackgroundWorker Worker )
     {
     // if (x*w[0] + y*w[1] != w[2])
@@ -2910,7 +2905,6 @@ namespace ExampleServer
 
 
 
-
   internal void SetupBaseArrays( Integer PrimeP, Integer PrimeQ, BackgroundWorker Worker )
     {
     // Normally this would only get called when you start up your server since
@@ -2962,25 +2956,26 @@ namespace ExampleServer
 
   internal void SetupGeneralBaseArray( Integer GeneralBase )
     {
-    int HowMany = (GeneralBase.GetIndex() * 2) + 10;
+    // The input to the accumulator can be twice the bit length of GeneralBase.
+    int HowMany = ((GeneralBase.GetIndex() + 1) * 2) + 10; // Plus some extra for carries...
     if( GeneralBaseArray == null )
       {
       GeneralBaseArray = new Integer[HowMany];
-      BaseWorkArray2 = new Integer[HowMany];
+      AccumulateArray = new Integer[HowMany];
       }
 
     if( GeneralBaseArray.Length < HowMany )
       {
       GeneralBaseArray = new Integer[HowMany];
-      BaseWorkArray2 = new Integer[HowMany];
+      AccumulateArray = new Integer[HowMany];
       }
 
     Integer Base = new Integer();
     Integer BaseValue = new Integer();
-    Base.SetFromULong( 256 );
-    MultiplyUInt( Base, 256 );
-    MultiplyUInt( Base, 256 );
-    MultiplyUInt( Base, 256 );
+    Base.SetFromULong( 256 ); // 0x100
+    MultiplyUInt( Base, 256 ); // 0x10000
+    MultiplyUInt( Base, 256 ); // 0x1000000
+    MultiplyUInt( Base, 256 ); // 0x100000000 is the base of this number system.
 
     BaseValue.SetFromULong( 1 );
     for( int Count = 0; Count < HowMany; Count++ )
@@ -2988,8 +2983,8 @@ namespace ExampleServer
       if( GeneralBaseArray[Count] == null )
         GeneralBaseArray[Count] = new Integer();
 
-      if( BaseWorkArray2[Count] == null )
-        BaseWorkArray2[Count] = new Integer();
+      if( AccumulateArray[Count] == null )
+        AccumulateArray[Count] = new Integer();
 
       Divide( BaseValue, GeneralBase, Quotient, Remainder );
       GeneralBaseArray[Count].Copy( Remainder );
@@ -3047,6 +3042,8 @@ namespace ExampleServer
 
 
 
+  // This is the Modular Reduction algorithm.  It reduces
+  // ToAdd to Result.
   private int AddByGeneralBaseArrays( Integer Result, Integer ToAdd )
     {
     try
@@ -3061,25 +3058,26 @@ namespace ExampleServer
     // the ToAdd that comes in here is about the size of N and the GeneralBase
     // is about the size of P.  So the amount of work done here is proportional
     // to P times N.  (Like Big O of P times N.)
-    for( int Count = 0; Count <= ToAdd.GetIndex(); Count++ )
+
+    int HowManyToAdd = ToAdd.GetIndex() + 1;
+    int BiggestIndex = 0;
+    for( int Count = 0; Count < HowManyToAdd; Count++ )
       {
       // The size of the numbers in GeneralBaseArray are all less than
       // the size of GeneralBase.
-      // BaseWorkArray2[Count].Copy( GeneralBaseArray[Count] );
-
       // This multiplication by a uint is with a number that is not bigger
       // than GeneralBase.  Compare this with the two full Muliply()
       // calls done on each digit of the quotient in LongDivide3().
-      // MultiplyUInt( BaseWorkArray2[Count], ToAdd.GetD( Count ));
 
-      MultiplyUIntFromCopy( BaseWorkArray2[Count], GeneralBaseArray[Count], ToAdd.GetD( Count ));
+      // AccumulateArray[Count] is set to a new value here.
+      int CheckIndex = MultiplyUIntFromCopy( AccumulateArray[Count], GeneralBaseArray[Count], ToAdd.GetD( Count ));
+      if( CheckIndex > BiggestIndex )
+        BiggestIndex = CheckIndex;
 
-
-      // Result doesn't get much bigger than the length of GeneralBase
-      // plus the length of the uint.  But with (possibly) a few carry
-      // bits added.
-      Result.Add( BaseWorkArray2[Count] );
       }
+
+    // Add all of them up at once.
+    AddUpAccumulateArray( Result, HowManyToAdd, BiggestIndex );
 
     return Result.GetIndex();
     }
@@ -3088,6 +3086,41 @@ namespace ExampleServer
       throw( new Exception( "Exception in AddByGeneralBaseArrays(): " + Except.Message ));
       }
     }
+
+
+
+  private void AddUpAccumulateArray( Integer Result, int HowManyToAdd, int BiggestIndex )
+    {
+    try
+    {
+    for( int Count = 0; Count <= (BiggestIndex + 1); Count++ )
+      Result.SetD( Count, 0 );
+
+    Result.SetIndex( BiggestIndex );
+
+    for( int Count = 0; Count < HowManyToAdd; Count++ )
+      {
+      int HowManyDigits = AccumulateArray[Count].GetIndex() + 1;
+      for( int CountDigits = 0; CountDigits < HowManyDigits; CountDigits++ )
+        {
+        ulong Sum = AccumulateArray[Count].GetD( CountDigits ) + Result.GetD( CountDigits );
+        Result.SetD( CountDigits, Sum );
+        }
+      }
+
+    // This is like ax + by + cz + ... = Result.
+    // You know what a, b, c... are.
+    // But you don't know what x, y, and z are.
+    // So how do you reverse this and get x, y and z?
+
+    Result.OrganizeDigits();
+    }
+    catch( Exception Except )
+      {
+      throw( new Exception( "Exception in AddUpAccumulateArray(): " + Except.Message ));
+      }
+    }
+
 
 
   }
