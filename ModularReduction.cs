@@ -40,6 +40,11 @@ namespace ExampleServer
 
   internal void ModularPower( Integer Result, Integer Exponent, Integer GeneralBase )
     {
+    // The square and multiply method is in Wikipedia:
+    // https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+    // x^n = (x^2)^((n - 1)/2) if n is odd.
+    // x^n = (x^2)^(n/2)       if n is even.
+
     if( Result.IsZero())
       return; // With Result still zero.
 
@@ -83,6 +88,8 @@ namespace ExampleServer
       if( (ExponentCopy.GetD( 0 ) & 1) == 1 ) // If the bottom bit is 1.
         {
         IntMath.Multiply( Result, XForModPower );
+        
+        // Modular Reduction:
         AddByGeneralBaseArrays( TempForModPower, Result );
         Result.Copy( TempForModPower );
         }
@@ -93,6 +100,8 @@ namespace ExampleServer
 
       // Square it.
       IntMath.Multiply( XForModPower, XForModPower );
+
+      // Modular Reduction:
       AddByGeneralBaseArrays( TempForModPower, XForModPower );
       XForModPower.Copy( TempForModPower );
       }
