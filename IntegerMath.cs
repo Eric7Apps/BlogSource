@@ -71,14 +71,15 @@ namespace ExampleServer
   private Integer TempForModPower;
   private int MaxModPowerIndex = 0;
   private Integer OriginalValue;
+  private Integer AccumulateBase;
   private Integer[] BaseArrayP;
   private Integer[] BaseArrayQ;
   private Integer[] GeneralBaseArray;
   private Integer[] AccumulateArray;
   private Integer[] BaseWorkArray1;
-
-  private int PrimeArrayLast = 0;
+  private uint[] DivisionArray;
   private uint[] PrimeArray;
+  internal const int PrimeArrayLength = 1024 * 32;
   private string StatusString = "";
 
 
@@ -131,6 +132,7 @@ namespace ExampleServer
     TestForModPower = new Integer();
     TempForModPower = new Integer();
     OriginalValue = new Integer();
+    AccumulateBase = new Integer();
 
     MakePrimeArray();
     }
@@ -145,6 +147,17 @@ namespace ExampleServer
     }
 
 
+
+  internal uint GetPrimeAt( int Index )
+    {
+    if( Index >= PrimeArrayLength )
+      return 0;
+
+    return PrimeArray[Index];
+    }
+
+
+
   internal uint GetFirstPrimeFactor( uint ToTest )
     {
     if( ToTest <= 3 )
@@ -152,7 +165,7 @@ namespace ExampleServer
       
     uint Max = (uint)FindULSqrRoot( ToTest ); 
 
-    for( int Count = 0; Count < PrimeArrayLast; Count++ )
+    for( int Count = 0; Count < PrimeArrayLength; Count++ )
       {
       uint TestN = PrimeArray[Count];
       if( (ToTest % TestN) == 0 )
@@ -171,7 +184,8 @@ namespace ExampleServer
   private void MakePrimeArray()
     {
     // try
-    PrimeArray = new uint[1024 * 32];
+
+    PrimeArray = new uint[PrimeArrayLength];
     // catch 
 
     PrimeArray[0] = 2;
@@ -184,7 +198,7 @@ namespace ExampleServer
     PrimeArray[7] = 19;
     PrimeArray[8] = 23;
 
-    PrimeArrayLast = 9;
+    int Last = 9;
     for( uint TestN = 29; ; TestN += 2 )
       {
       if( (TestN % 3) == 0 )
@@ -193,13 +207,13 @@ namespace ExampleServer
       // If it has no prime factors then add it.
       if( 0 == GetFirstPrimeFactor( TestN ))
         {
-        PrimeArray[PrimeArrayLast] = TestN;
-        // if( (PrimeArrayLast + 100) > PrimeArray.Length )
-        // if( PrimeArrayLast < 100 )
-          // StatusString += PrimeArray[PrimeArrayLast].ToString() + ",\r\n";
+        PrimeArray[Last] = TestN;
+        // if( (Last + 100) > PrimeArray.Length )
+        // if( Last < 100 )
+          // StatusString += PrimeArray[Last].ToString() + ",\r\n";
 
-        PrimeArrayLast++;
-        if( PrimeArrayLast >= PrimeArray.Length )
+        Last++;
+        if( Last >= PrimeArrayLength )
           return;
 
         }
@@ -216,7 +230,7 @@ namespace ExampleServer
     if( 0 == GetMod3( ToTest ))
       return 3;
 
-    for( int Count = 2; Count < PrimeArrayLast; Count++ )
+    for( int Count = 2; Count < PrimeArrayLength; Count++ )
       {
       if( 0 == GetMod32( ToTest, PrimeArray[Count] ))
         return PrimeArray[Count];
@@ -485,6 +499,17 @@ namespace ExampleServer
 
   internal void MultiplyUInt( Integer Result, ulong ToMul )
     {
+    try
+    {
+    if( ToMul == 0 )
+      {
+      Result.SetToZero();
+      return;
+      }
+
+    if( ToMul == 1 )
+      return;
+
     for( int Column = 0; Column <= Result.GetIndex(); Column++ )
       M[Column, 0] = ToMul * Result.GetD( Column );
 
@@ -507,6 +532,11 @@ namespace ExampleServer
       {
       Result.IncrementIndex(); // This might throw an exception if it overflows.
       Result.SetD( Result.GetIndex(), Carry );
+      }
+    }
+    catch( Exception Except )
+      {
+      throw( new Exception( "Exception in MultiplyUInt(): " + Except.Message ));
       }
     }
 
@@ -612,9 +642,7 @@ namespace ExampleServer
 
     if( Carry != 0 )
       {
-      Result.IncrementIndex();
-      //  throw( new Exception( "MulULong() overflow." ));
-      
+      Result.IncrementIndex(); // This can throw an exception.
       Result.SetD( Result.GetIndex(), Carry );
       }
     }
@@ -1360,7 +1388,7 @@ namespace ExampleServer
     if( Carry != 0 )
       {
       ToSquare.SetIndex( ToSquare.GetIndex() + 1 );
-      if( ToSquare.GetIndex() >= Integer.DigitArraySize ) 
+      if( ToSquare.GetIndex() >= Integer.DigitArraySize )
         throw( new Exception( "Square() overflow." ));
       
       ToSquare.SetD( ToSquare.GetIndex(), Carry );
@@ -3044,7 +3072,7 @@ namespace ExampleServer
 
   // This is the Modular Reduction algorithm.  It reduces
   // ToAdd to Result.
-  private int AddByGeneralBaseArrays( Integer Result, Integer ToAdd )
+  internal int AddByGeneralBaseArrays( Integer Result, Integer ToAdd )
     {
     try
     {
@@ -3057,7 +3085,7 @@ namespace ExampleServer
     // this is reducing it to.  Like if you multiply P and Q to get N, then
     // the ToAdd that comes in here is about the size of N and the GeneralBase
     // is about the size of P.  So the amount of work done here is proportional
-    // to P times N.  (Like Big O of P times N.)
+    // to P times N.
 
     int HowManyToAdd = ToAdd.GetIndex() + 1;
     int BiggestIndex = 0;
@@ -3069,15 +3097,18 @@ namespace ExampleServer
       // than GeneralBase.  Compare this with the two full Muliply()
       // calls done on each digit of the quotient in LongDivide3().
 
-      // AccumulateArray[Count] is set to a new value here.
-      int CheckIndex = MultiplyUIntFromCopy( AccumulateArray[Count], GeneralBaseArray[Count], ToAdd.GetD( Count ));
+      // Accumulate is set to a new value here.
+      int CheckIndex = MultiplyUIntFromCopy( AccumulateBase, GeneralBaseArray[Count], ToAdd.GetD( Count ));
+
       if( CheckIndex > BiggestIndex )
         BiggestIndex = CheckIndex;
 
+      Result.Add( AccumulateBase );
       }
 
-    // Add all of them up at once.
-    AddUpAccumulateArray( Result, HowManyToAdd, BiggestIndex );
+    // Add all of them up at once.  This could cause an overflow, so 
+    // Result.Add is done above.
+    // AddUpAccumulateArray( Result, HowManyToAdd, BiggestIndex );
 
     return Result.GetIndex();
     }
@@ -3088,7 +3119,7 @@ namespace ExampleServer
     }
 
 
-
+  /* This might overflow.
   private void AddUpAccumulateArray( Integer Result, int HowManyToAdd, int BiggestIndex )
     {
     try
@@ -3119,6 +3150,185 @@ namespace ExampleServer
       {
       throw( new Exception( "Exception in AddUpAccumulateArray(): " + Except.Message ));
       }
+    }
+    */
+
+
+
+  internal ulong GetFactorial( uint Value )
+    {
+    if( Value == 0 )
+      return 1;
+
+    if( Value == 1 )
+      return 1;
+
+    uint Factorial = 1;
+    for( uint Count = 2; Count <= Value; Count++ )
+      Factorial = Factorial * Count;
+
+    return Factorial;
+    }
+
+
+
+  internal string ShowBinomialCoefficients( uint Exponent )
+    {
+    try
+    {
+    // The expansion of: (X + Y)^N
+    // A binomial coefficient is  N! / (K!*(N - K)!).
+
+    // 0 raised to the 0 power is 1.  It is defined that way.
+    // So (0 + 2)^3 has all terms set to zero except for 2^3.
+
+    StringBuilder SBuilder = new StringBuilder();
+    ulong ExponentFactorial = GetFactorial( Exponent );
+    SBuilder.Append( "ExponentFactorial: " + ExponentFactorial.ToString() + "\r\n" );
+
+    for( uint Count = 0; Count <= Exponent; Count++ )
+      {
+      uint K = Count;
+      SBuilder.Append( "\r\n" );
+      SBuilder.Append( "K: " + K.ToString() + "\r\n" );
+      ulong KFactorial = GetFactorial( K );
+      uint ExponentMinusK = (uint)((int)Exponent - (int)K);
+      ulong ExponentMinusKFactorial = GetFactorial( ExponentMinusK );
+      ulong Denom = KFactorial * ExponentMinusKFactorial;
+      ulong Coefficient = ExponentFactorial / Denom;
+      SBuilder.Append( "Coefficient: " + Coefficient.ToString() + "\r\n");
+      }
+
+    return SBuilder.ToString();
+    }
+    catch( Exception Except )
+      {
+      throw( new Exception( "Exception in ShowBinomialCoefficients()." + Except.Message ));
+      }
+    }
+
+
+
+  internal void SetupDivisionArray()
+    {
+    // If you were going to try and find the prime factors of a number,
+    // the most basic way would be to divide it by every prime up to the
+    // prime that finally divides it evenly.  The problem with doing that
+    // is that it takes longer to figure out if a number is a prime than
+    // it does to just test a lot of numbers that are less likely to be
+    // composite than other numbers.  Any table of primes like the one
+    // in IntegerMath.PrimeArray would only last for a split second, then
+    // you'd have to go on to some other method for bigger numbers.
+
+    // If you pick a number at random, then statistically, half of all
+    // numbers are odd, a third of all numbers are divisible by 3, a 
+    // fifth of all numbers are divisible by 5, a seventh of all numbers
+    // are divisible by 7, and so on.  So you can reduce the size of the
+    // numbers that you test with by getting rid of those numbers that
+    // are divisible by small primes.
+
+    // The Euler Phi function shows the number of numbers that are relatively
+    // prime to some other number.  So it gives you the size of the array
+    // for these numbers.  It is (2 - 1)(3 - 1)(5 - 1)... and so on.
+    uint Base = 2 * 3 * 5 * 7 * 11 * 13 * 17;
+    uint EulerPhi = 2 * 4 * 6 * 10 * 12 * 16;
+    DivisionArray = new uint[EulerPhi];
+
+    // The first few numbers in this array are: 
+    // 1, 19, 23, 29, 31, 37, 41 ... and so on.
+
+    int Index = 0;
+    for( uint Count = 0; Count < Base; Count++ )
+      {
+      if( (Count & 1) == 0 ) // If its an even number.
+        continue;
+
+      if( (Count % 3) == 0 ) // If its divisible by 3.
+        continue;
+
+      if( (Count % 5) == 0 )
+        continue;
+
+      if( (Count % 7) == 0 )
+        continue;
+
+      if( (Count % 11) == 0 )
+        continue;
+
+      if( (Count % 13) == 0 )
+        continue;
+
+      if( (Count % 17) == 0 )
+        continue;
+
+      DivisionArray[Index] = Count;
+      Index++;
+      }
+    }
+
+
+
+  internal uint NumberIsDivisibleByUInt( Integer ToCheck,  BackgroundWorker Worker )
+    {
+    if( DivisionArray == null )
+      throw( new Exception( "The DivisionArray should have been set up before calling this." ));
+
+    uint Base = 2 * 3 * 5 * 7 * 11 * 13 * 17;
+    uint EulerPhi = 2 * 4 * 6 * 10 * 12 * 16;
+    uint Base19 = Base * 19;
+    uint Base23 = Base19 * 23;
+
+    // The first few numbers like this:
+    // 2             2
+    // 3             6
+    // 5            30
+    // 7           210
+    // 11        2,310
+    // 13       30,030
+    // 17      510,510
+    // 19    9,699,690
+    // 23  223,092,870
+
+    for( uint Count23 = 0; Count23 < 23; Count23++ )
+      {
+      uint Base23Part = (Base19 * Count23);
+      for( uint Count19 = 0; Count19 < 19; Count19++ )
+        {
+        uint Base19Part = Base * Count19;
+        // if( Worker.CancellationPending )
+          // return 0;
+
+        for( int Count = 0; Count < EulerPhi; Count++ )
+          {
+          if( Worker.CancellationPending )
+            return 0;
+
+          uint Test = Base23Part + Base19Part + DivisionArray[Count];
+          if( Test == 1 )
+            continue;
+
+          if( (Test % 19) == 0 )
+            continue;
+
+          if( (Test % 23) == 0 )
+            continue;
+
+          // if( (Count < 100) && (Count19 == 1) && (Count23 == 0) )
+            // Worker.ReportProgress( 0, "Test value: " + Test.ToString( "N0" ));
+
+          // if( (Count & 0x3FFFFFFF) == 1 )
+            // Worker.ReportProgress( 0, "Testing with: " + Test.ToString( "N0" ));
+
+          if( 0 == GetMod32( ToCheck, Test ))
+            {
+            Worker.ReportProgress( 0, "The number is divisible by: " + Test.ToString( "N0" ));
+            return Test;
+            }
+          }
+        }
+      }
+
+    return 0; // Didn't find a number to divide it.
     }
 
 
