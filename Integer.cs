@@ -23,12 +23,15 @@ namespace ExampleServer
   private int Index; // Highest digit.
   // The digit array size is fixed to keep it simple, but you might
   // want to make it dynamic so it can grow as needed.
+
+  // If this array size is changed then test it with ChineseRemainder.
   internal const int DigitArraySize = ((1024 * 16) / 32) + 1;
 
 
 
   internal Integer()
     {
+    IsNegative = false;
     D = new ulong[DigitArraySize];
     SetToZero();
     }
@@ -128,11 +131,23 @@ namespace ExampleServer
     {
     IsNegative = false;
     Index = DigitArraySize - 1;
-    for( int Count = 0; Count < DigitArraySize; Count++ )
+    for( int Count = 0; Count <= Index; Count++ )
       D[Count] = 0xFFFFFFFF;
 
     }
 
+
+
+  internal void SetToMaxValueForCRT()
+    {
+    // DigitArraySize is 512.
+    // MaxValue index is 256.
+    IsNegative = false;
+    Index = DigitArraySize >> 1;
+    for( int Count = 0; Count <= Index; Count++ )
+      D[Count] = 0xFFFFFFFF;
+
+    }
 
 
 
@@ -784,8 +799,7 @@ namespace ExampleServer
     for( int Count = 0; Count <= Index; Count++ )
       {
       if( (D[Count] >> 32) != 0 )
-        return false;
-        // throw( new Exception( "(D[Count] >> 32) != 0 for MakeRandom()." ));
+        throw( new Exception( "(D[Count] >> 32) != 0 for MakeRandom()." ));
 
       }
 
