@@ -77,6 +77,19 @@ namespace ExampleServer
 
 
 
+  internal bool IsZero()
+    {
+    for( int Count = 0; Count < DigitsArraySize; Count++ )
+      {
+      if( DigitsArray[Count].Value != 0 )
+        return false;
+
+      }
+
+    return true;
+    }
+
+
   internal void SetToOne()
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
@@ -84,6 +97,18 @@ namespace ExampleServer
 
     }
 
+
+  internal bool IsOne()
+    {
+    for( int Count = 0; Count < DigitsArraySize; Count++ )
+      {
+      if( DigitsArray[Count].Value != 1 )
+        return false;
+
+      }
+
+    return true;
+    }
 
 
   internal void Copy( ChineseRemainder ToCopy )
@@ -94,13 +119,30 @@ namespace ExampleServer
     }
 
 
+  internal bool IsEqual( ChineseRemainder ToCheck )
+    {
+    for( int Count = 0; Count < DigitsArraySize; Count++ )
+      {
+      if( DigitsArray[Count].Value != ToCheck.DigitsArray[Count].Value )
+        return false;
+
+      }
+
+    return true;
+    }
+
+
   internal void Add( ChineseRemainder ToAdd )
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
       {
       // Operations like this could be very fast if they were done in
       // hardware, and the small mod operations could be done in very
-      // small hardware lookup tables.
+      // small hardware lookup tables.  They could also be done in parallel,
+      // which would make it a lot faster than the way this is done, one
+      // digit at a time.  Notice that there is no carry operation here.
+      // As Claud Shannon would say, there is no diffusion here.
+      // Like he wrote about in A Mathematical Theory of Cryptography.
       DigitsArray[Count].Value += ToAdd.DigitsArray[Count].Value;
       if( DigitsArray[Count].Value >= DigitsArray[Count].Prime )
         DigitsArray[Count].Value -= DigitsArray[Count].Prime;
@@ -128,6 +170,9 @@ namespace ExampleServer
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
       {
+      // There is no Diffusion here either, like the kind that
+      // Claude Shannon wrote about in A Mathematical Theory of
+      // Cryptography.
       DigitsArray[Count].Value *= ToMul.DigitsArray[Count].Value;
       DigitsArray[Count].Value %= DigitsArray[Count].Prime;
       }
