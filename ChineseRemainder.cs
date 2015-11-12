@@ -19,10 +19,11 @@ namespace ExampleServer
     }
 
 
+
   class ChineseRemainder
   {
-  private IntegerMath IntMath;
   private OneDigit[] DigitsArray;
+
   // This has to be set in relation to the Integer.DigitArraySize so that
   // it isn't too big for the MultplyUint that's done in
   // GetTraditionalInteger().  Also it has to be checked with the Max
@@ -30,15 +31,15 @@ namespace ExampleServer
   internal const int DigitsArraySize = Integer.DigitArraySize * 2; // Index is 1024?
 
 
+  /*
   private ChineseRemainder()
     {
     }
+    */
 
 
-  internal ChineseRemainder( IntegerMath UseIntegerMath )
+  internal ChineseRemainder( IntegerMath IntMath )
     {
-    IntMath = UseIntegerMath;
-
     if( DigitsArraySize > IntegerMath.PrimeArrayLength )
       throw( new Exception( "ChineseRemainder digit size is too big." ));
 
@@ -50,12 +51,23 @@ namespace ExampleServer
     }
 
 
+
   internal int GetDigitAt( int Index )
     {
     if( Index >= DigitsArraySize )
       throw( new Exception( "ChineseRemainder GetDigitAt Index is too big." ));
 
     return DigitsArray[Index].Value;
+    }
+
+
+
+  internal int GetPrimeAt( int Index )
+    {
+    if( Index >= DigitsArraySize )
+      throw( new Exception( "ChineseRemainder GetPrimeAt Index is too big." ));
+
+    return DigitsArray[Index].Prime;
     }
 
 
@@ -90,6 +102,7 @@ namespace ExampleServer
     }
 
 
+
   internal void SetToOne()
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
@@ -111,12 +124,14 @@ namespace ExampleServer
     }
 
 
+
   internal void Copy( ChineseRemainder ToCopy )
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
       DigitsArray[Count].Value = ToCopy.DigitsArray[Count].Value;
 
     }
+
 
 
   internal bool IsEqual( ChineseRemainder ToCheck )
@@ -132,6 +147,7 @@ namespace ExampleServer
     }
 
 
+
   internal void Add( ChineseRemainder ToAdd )
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
@@ -142,7 +158,6 @@ namespace ExampleServer
       // which would make it a lot faster than the way this is done, one
       // digit at a time.  Notice that there is no carry operation here.
       // As Claud Shannon would say, there is no diffusion here.
-      // Like he wrote about in A Mathematical Theory of Cryptography.
       DigitsArray[Count].Value += ToAdd.DigitsArray[Count].Value;
       if( DigitsArray[Count].Value >= DigitsArray[Count].Prime )
         DigitsArray[Count].Value -= DigitsArray[Count].Prime;
@@ -200,7 +215,8 @@ namespace ExampleServer
     }
 
 
-  internal void SetFromTraditionalInteger( Integer SetFrom )
+
+  internal void SetFromTraditionalInteger( Integer SetFrom, IntegerMath IntMath )
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
       {
@@ -210,79 +226,13 @@ namespace ExampleServer
 
 
 
-  internal void GetTraditionalInteger( Integer BigBase,
-                                       Integer BasePart,
-                                       Integer ToTest,
-                                       Integer Accumulate )
+  internal void SetFromUInt( uint SetFrom )
     {
-    // This takes several seconds for a large number.
-    try
-    {
-    // The first few numbers for the base:
-    // 2             2
-    // 3             6
-    // 5            30
-    // 7           210
-    // 11        2,310
-    // 13       30,030
-    // 17      510,510
-    // 19    9,699,690
-    // 23  223,092,870
-
-    // This first one has the prime 2 as its base so it's going to
-    // be set to either zero or one.
-    Accumulate.SetFromULong( (uint)DigitsArray[0].Value );
-    BigBase.SetFromULong( 2 );
-
-    // Count starts at 1, so it's the prime 3.
-    for( int Count = 1; Count < DigitsArraySize; Count++ )
+    for( int Count = 0; Count < DigitsArraySize; Count++ )
       {
-      for( uint CountPrime = 0; CountPrime < DigitsArray[Count].Prime; CountPrime++ )
-        {
-        ToTest.Copy( BigBase );
-        IntMath.MultiplyUInt( ToTest, CountPrime );
-        // Notice that the first time through this loop it's zero, so the
-        // base part isn't added if it's already congruent to the Value.
-        // So even though it goes all the way up through the DigitsArray,
-        // this whole thing could add up to a small number like 7.
-        // Compare this part with how GetMod32() is used in
-        // SetFromTraditionalInteger().  And also, compare this with how
-        // IntegerMath.NumberIsDivisibleByUInt() works.
-        BasePart.Copy( ToTest );
-        ToTest.Add( Accumulate );
-        // If it's congruent to the Value mod Prime then it's the right number.
-        if( (uint)DigitsArray[Count].Value == IntMath.GetMod32( ToTest, (uint)DigitsArray[Count].Prime ))
-          {
-          Accumulate.Add( BasePart );
-          break;
-          }
-        }
-
-      // The Integers have to be big enough to multiply this base.
-      IntMath.MultiplyUInt( BigBase, (uint)DigitsArray[Count].Prime );
-      }
-
-    // Returns with Accumulate for the value.
-
-    }
-    catch( Exception Except )
-      {
-      throw( new Exception( "Exception in GetTraditionalInteger(): " + Except.Message ));
+      DigitsArray[Count].Value = (int)(SetFrom % (uint)DigitsArray[Count].Prime );
       }
     }
-
-
-  /*
-  internal bool ParamIsGreater( ChineseRemainder Param )
-    {
-    The only way this could be done is like this:
-    if( Param.GetTraditionalInteger() is more than GetTraditionalInteger() )
-      return true;
-    else
-      return false;
-
-    }
-    */
 
 
   }
