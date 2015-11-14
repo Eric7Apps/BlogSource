@@ -2,10 +2,12 @@
 // Notes on this source code are at:
 // http://eric7apps.blogspot.com/
 
+
 using System;
 using System.Threading; // For Sleep().
 using System.ComponentModel; // BackgroundWorker
 using System.Security.Cryptography;
+
 
 // See RSA Cryptosystem:
 // https://en.wikipedia.org/wiki/RSA_%28cryptosystem%29
@@ -46,13 +48,16 @@ namespace ExampleServer
   private Integer TestForDecrypt;
   private BackgroundWorker Worker;
   private MakeKeysWorkerInfo WInfo;
-  private RNGCryptoServiceProvider RngCsp = new RNGCryptoServiceProvider();
+  private RNGCryptoServiceProvider RngCsp;
   private ECTime StartTime;
   private int GoodLoopCount = 0;
   private int BadLoopCount = 0;
+  private CRTMath CRTMath1;
+
   // private const int PrimeIndex = 15; // Approximmately 512-bit primes.
-  // private const int PrimeIndex = 31; // Approximmately 1024-bit primes.
-  private const int PrimeIndex = 63; // Approximmately 2048-bit primes.
+  private const int PrimeIndex = 31; // Approximmately 1024-bit primes.
+  // private const int PrimeIndex = 63; // Approximmately 2048-bit primes.
+  // private const int PrimeIndex = 127; // Approximmately 4096-bit primes.
 
 
 
@@ -69,6 +74,8 @@ namespace ExampleServer
 
     StartTime = new ECTime();
     StartTime.SetToNow();
+
+    RngCsp = new RNGCryptoServiceProvider();
     IntMath = new IntegerMath();
     Quotient = new Integer();
     Remainder = new Integer();
@@ -91,6 +98,7 @@ namespace ExampleServer
     CipherToDP = new Integer();
     CipherToDQ = new Integer();
     TestForDecrypt = new Integer();
+    CRTMath1 = new CRTMath( Worker );
     }
 
 
@@ -102,6 +110,138 @@ namespace ExampleServer
       RngCsp.Dispose();
       RngCsp = null;
       }
+    }
+
+
+
+  private void DoCRTTest( Integer StartingNumber )
+    {
+    ECTime CRTTestTime = new ECTime();
+    ChineseRemainder CRTTest = new ChineseRemainder( IntMath );
+    ChineseRemainder CRTTest2 = new ChineseRemainder( IntMath );
+    ChineseRemainder CRTAccumulate = new ChineseRemainder( IntMath );
+    ChineseRemainder CRTToTest = new ChineseRemainder( IntMath );
+    ChineseRemainder CRTTempEqual = new ChineseRemainder( IntMath );
+    ChineseRemainder CRTTestEqual = new ChineseRemainder( IntMath );
+    Integer BigBase = new Integer();
+    Integer ToTest = new Integer();
+    Integer Accumulate = new Integer();
+    Integer Test1 = new Integer();
+    Integer Test2 = new Integer();
+
+    CRTTest.SetFromTraditionalInteger( StartingNumber, IntMath );
+    // If the digit array size isn't set right in relation to
+    // Integer.DigitArraySize then it can cause an error here.
+    CRTMath1.GetTraditionalInteger( Accumulate, CRTTest );
+
+    if( !Accumulate.IsEqual( StartingNumber ))
+      throw( new Exception( "  !Accumulate.IsEqual( Result )." ));
+
+    CRTTestEqual.SetFromTraditionalInteger( Accumulate, IntMath );
+    if( !CRTMath1.IsEqualToInteger( CRTTestEqual, Accumulate ))
+      throw( new Exception( "IsEqualToInteger() didn't work." ));
+
+
+    CRTMath1.SetupBaseModArray( Accumulate );
+
+    ChineseRemainder CRTInput = new ChineseRemainder( IntMath );
+    Integer TestModulus = new Integer();
+    TestModulus.Copy( StartingNumber );
+    CRTInput.SetFromTraditionalInteger( StartingNumber, IntMath );
+    CRTMath1.ModularReduction( CRTInput, CRTAccumulate );
+
+    if( !CRTMath1.IsEqualToInteger( CRTAccumulate, Accumulate ))
+      throw( new Exception( "ModularReduction() didn't work." ));
+
+    // Make sure it works with even numbers too.
+    Test1.Copy( StartingNumber );
+    Test1.SetD( 0, Test1.GetD( 0 ) & 0xFE );
+    CRTTest.SetFromTraditionalInteger( Test1, IntMath );
+    CRTMath1.GetTraditionalInteger( Accumulate, CRTTest );
+
+    if( !Accumulate.IsEqual( Test1 ))
+      throw( new Exception( "For even numbers.  !Accumulate.IsEqual( Test )." ));
+
+    // Make sure the size of this works with the Integer size because
+    // an overflow is hard to find.
+    CRTTestTime.SetToNow();
+    Test1.SetToMaxValueForCRT();
+    CRTTest.SetFromTraditionalInteger( Test1, IntMath );
+    CRTMath1.GetTraditionalInteger( Accumulate, CRTTest );
+
+    if( !Accumulate.IsEqual( Test1 ))
+      throw( new Exception( "For the max value. !Accumulate.IsEqual( Test1 )." ));
+
+    // Worker.ReportProgress( 0, "CRT Max test seconds: " + CRTTestTime.GetSecondsToNow().ToString( "N1" ));
+    // Worker.ReportProgress( 0, "MaxValue: " + IntMath.ToString10( Accumulate ));
+    // Worker.ReportProgress( 0, "MaxValue.Index: " + Accumulate.GetIndex().ToString());
+
+
+    // Multiplicative Inverse test:
+    Integer TestDivideBy = new Integer();
+    Integer TestProduct = new Integer();
+    ChineseRemainder CRTTestDivideBy = new ChineseRemainder( IntMath );
+    ChineseRemainder CRTTestProduct = new ChineseRemainder( IntMath );
+
+    TestDivideBy.Copy( StartingNumber );
+    TestProduct.Copy( StartingNumber );
+    IntMath.Multiply( TestProduct, TestDivideBy );
+
+    CRTTestDivideBy.SetFromTraditionalInteger( TestDivideBy, IntMath );
+    CRTTestProduct.SetFromTraditionalInteger( TestDivideBy, IntMath );
+    CRTTestProduct.Multiply( CRTTestDivideBy );
+    
+    CRTMath1.GetTraditionalInteger( Accumulate, CRTTestProduct );
+
+    if( !Accumulate.IsEqual( TestProduct ))
+      throw( new Exception( "Multiply test was bad." ));
+
+    IntMath.Divide( TestProduct, TestDivideBy, Quotient, Remainder );
+    if( !Remainder.IsZero())
+      throw( new Exception( "This test won't work unless it divides it exactly." ));
+
+    ChineseRemainder CRTTestQuotient = new ChineseRemainder( IntMath );
+    CRTMath1.MultiplicativeInverse( CRTTestProduct, CRTTestDivideBy, CRTTestQuotient );
+
+    Integer TestQuotient = new Integer();
+    CRTMath1.GetTraditionalInteger( TestQuotient, CRTTestQuotient );
+    if( !TestQuotient.IsEqual( Quotient ))
+      throw( new Exception( "Modular Inverse in DoCRTTest didn't work." ));
+
+
+
+    // Subtract
+    Test1.Copy( StartingNumber );
+    IntMath.SetFromString( Test2, "12345678901234567890123456789012345" );
+
+    CRTTest.SetFromTraditionalInteger( Test1, IntMath );
+    CRTTest2.SetFromTraditionalInteger( Test2, IntMath );
+
+    CRTTest.Subtract( CRTTest2 );
+    IntMath.Subtract( Test1, Test2 );
+
+    CRTMath1.GetTraditionalInteger( Accumulate, CRTTest );
+
+    if( !Accumulate.IsEqual( Test1 ))
+      throw( new Exception( "Subtract test was bad." ));
+
+
+    // Add
+    Test1.Copy( StartingNumber );
+    IntMath.SetFromString( Test2, "12345678901234567890123456789012345" );
+
+    CRTTest.SetFromTraditionalInteger( Test1, IntMath );
+    CRTTest2.SetFromTraditionalInteger( Test2, IntMath );
+
+    CRTTest.Add( CRTTest2 );
+    IntMath.Add( Test1, Test2 );
+
+    CRTMath1.GetTraditionalInteger( Accumulate, CRTTest );
+
+    if( !Accumulate.IsEqual( Test1 ))
+      throw( new Exception( "Add test was bad." ));
+
+    // Worker.ReportProgress( 0, "CRT was good." );
     }
 
 
@@ -132,10 +272,13 @@ namespace ExampleServer
         return false;
         }
 
+      // DoCRTTest( Result );
+
       // Make sure that it's about the size I think it is.
       if( Result.GetIndex() < RandomIndex )
         continue;
 
+      // uint TestPrime = IntMath.NumberIsDivisibleByUInt( Result, Worker );
       uint TestPrime = IntMath.IsDivisibleBySmallPrime( Result );
       if( 0 != TestPrime)
         {
@@ -198,6 +341,8 @@ namespace ExampleServer
 
 
 
+
+
   internal void MakeRSAKeys()
     {
     // These numbers are in RFC 2437:
@@ -229,6 +374,8 @@ namespace ExampleServer
     // int TestLoops = 0;
 
     Worker.ReportProgress( 0, "Bits size is: " + ShowBits.ToString());
+
+    IntMath.SetupDivisionArray();
 
     // Worker.ReportProgress( 0, IntMath.GetStatusString());
     // TestAddAndSubtract();
@@ -351,6 +498,21 @@ namespace ExampleServer
       Worker.ReportProgress( 0, "PubKeyN:" );
       Worker.ReportProgress( 0, IntMath.ToString10( PubKeyN ));
       Worker.ReportProgress( 0, " " );
+
+      ChineseRemainder CRTTestProduct = new ChineseRemainder( IntMath );
+      ChineseRemainder CRTTestDivideBy = new ChineseRemainder( IntMath );
+      ChineseRemainder CRTTestQuotient = new ChineseRemainder( IntMath );
+
+      // Multiplicative Inverse test:
+      CRTTestDivideBy.SetFromTraditionalInteger( PrimeP, IntMath );
+      CRTTestProduct.SetFromTraditionalInteger( PubKeyN, IntMath );
+      CRTMath1.MultiplicativeInverse( CRTTestProduct, CRTTestDivideBy, CRTTestQuotient );
+
+      Integer TestAnswer = new Integer();
+      CRTMath1.GetTraditionalInteger( TestAnswer, CRTTestQuotient );
+      if( !TestAnswer.IsEqual( PrimeQ ))
+        throw( new Exception( "Modular Inverse didn't work for P and Q." ));
+
 
       // Euler's Theorem:
       // https://en.wikipedia.org/wiki/Euler's_theorem
@@ -490,9 +652,49 @@ namespace ExampleServer
       Worker.ReportProgress( 0, "Before encrypting number: " + IntMath.ToString10( ToEncrypt ));
       Worker.ReportProgress( 0, " " );
 
+      ChineseRemainder CRTResult = new ChineseRemainder( IntMath );
+      ChineseRemainder CRTModulus = new ChineseRemainder( IntMath );
+      Integer ToEncryptForCRTTest = new Integer();
+
+      // Make sure to set up the array first, for this modulus.
+      CRTMath1.SetupBaseModArray( PubKeyN );
+      // For testing:
+      // CRTMath1.SetupGeneralBaseArray( PubKeyN );
+
+
+      CRTModulus.SetFromTraditionalInteger( PubKeyN, IntMath );
+      ToEncryptForCRTTest.Copy( ToEncrypt );
+      CRTResult.SetFromTraditionalInteger( ToEncryptForCRTTest, IntMath );
+
+      CRTMath1.ModularPower( ToEncryptForCRTTest,
+                             CRTResult,
+                             PubKeyExponent,
+                             PubKeyN,
+                             CRTModulus );
+
+      Worker.ReportProgress( 0, " " );
+      Worker.ReportProgress( 0, " " );
+      Worker.ReportProgress( 0, " " );
+      Worker.ReportProgress( 0, "//////////////////////////////////" );
+      Worker.ReportProgress( 0, "QuotientForTest: " + CRTMath1.QuotientForTest.ToString( "N0" ) );
+      Worker.ReportProgress( 0, "//////////////////////////////////" );
+      Worker.ReportProgress( 0, " " );
+      Worker.ReportProgress( 0, " " );
+      Worker.ReportProgress( 0, " " );
+      // QuotientForTest: 41,334
+      // QuotientForTest: 43,681
+      // QuotientForTest: 44,396
+
       IntMath.ModularPower( ToEncrypt, PubKeyExponent, PubKeyN );
       if( Worker.CancellationPending )
         return;
+
+      // if( !CRTMath1.IsEqualToInteger( CRTResult, ToEncryptForCRTTest ))
+        // throw( new Exception( "ModularPower() didn't work." ));
+
+      if( !ToEncryptForCRTTest.IsEqual( ToEncrypt ))
+        throw( new Exception( "Second test.  ModularPower() didn't work." ));
+
 
       CipherTextNumber.Copy( ToEncrypt );
 
