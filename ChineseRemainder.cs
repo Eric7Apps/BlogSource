@@ -12,10 +12,12 @@ using System.ComponentModel; // BackgroundWorker
 
 namespace ExampleServer
 {
-  public struct OneDigit
+  internal struct OneDigit
     {
-    public int Prime;
-    public int Value;
+    // internal int Prime;
+    internal int Value; // Digit value.
+    // The BaseMultiple gives these numbers magnitude.
+    internal int BaseMultiple; // The MatchingValue found.
     }
 
 
@@ -23,7 +25,7 @@ namespace ExampleServer
   class ChineseRemainder
   {
   private OneDigit[] DigitsArray;
-
+  private IntegerMath IntMath;
   // This has to be set in relation to the Integer.DigitArraySize so that
   // it isn't too big for the MultplyUint that's done in
   // GetTraditionalInteger().  Also it has to be checked with the Max
@@ -38,15 +40,14 @@ namespace ExampleServer
     */
 
 
-  internal ChineseRemainder( IntegerMath IntMath )
+  internal ChineseRemainder( IntegerMath UseIntMath )
     {
     if( DigitsArraySize > IntegerMath.PrimeArrayLength )
       throw( new Exception( "ChineseRemainder digit size is too big." ));
 
-    DigitsArray = new OneDigit[DigitsArraySize];
-    for( int Count = 0; Count < DigitsArraySize; Count++ )
-      DigitsArray[Count].Prime = (int)IntMath.GetPrimeAt( Count );
+    IntMath = UseIntMath;
 
+    DigitsArray = new OneDigit[DigitsArraySize];
     // SetToZero(); Not necessary for managed code.
     }
 
@@ -62,21 +63,58 @@ namespace ExampleServer
 
 
 
-  internal int GetPrimeAt( int Index )
-    {
-    if( Index >= DigitsArraySize )
-      throw( new Exception( "ChineseRemainder GetPrimeAt Index is too big." ));
-
-    return DigitsArray[Index].Prime;
-    }
-
-
   internal void SetDigitAt( int SetTo, int Index )
     {
     if( Index >= DigitsArraySize )
       throw( new Exception( "ChineseRemainder SetDigitAt Index is too big." ));
 
     DigitsArray[Index].Value = SetTo;
+    }
+
+
+
+  internal void SetBaseMultiple( int SetTo, int Index )
+    {
+    if( Index >= DigitsArraySize )
+      throw( new Exception( "ChineseRemainder SetBaseMultiple Index is too big." ));
+
+    DigitsArray[Index].BaseMultiple = SetTo;
+    }
+
+
+
+  internal int GetBaseMultiple( int Index )
+    {
+    if( Index >= DigitsArraySize )
+      throw( new Exception( "ChineseRemainder GetBaseMultiple Index is too big." ));
+
+    return DigitsArray[Index].BaseMultiple;
+    }
+
+
+
+  internal bool ParamIsGreater( ChineseRemainder ToCheck )
+    {
+    for( int Count = DigitsArraySize - 1; Count >= 0; Count-- )
+      {
+      // Usually a lot of upper values will both be zero until it
+      // gets down to smaller magnitudes.  So a 1024-bit number
+      // would go to a Count of about 130 or 131 (depending on what
+      // it's congruent to) to find its first non-zero BaseMultiple
+      // here.
+      if( ToCheck.DigitsArray[Count].BaseMultiple == DigitsArray[Count].BaseMultiple )
+        continue;
+
+      // The first one it finds that's not equal.
+      if( ToCheck.DigitsArray[Count].BaseMultiple > DigitsArray[Count].BaseMultiple )
+        return true;
+
+      if( ToCheck.DigitsArray[Count].BaseMultiple < DigitsArray[Count].BaseMultiple )
+        return false;
+
+      }
+
+    return false; // It's equal but not greater.
     }
 
 
@@ -129,8 +167,10 @@ namespace ExampleServer
   internal void Copy( ChineseRemainder ToCopy )
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
+      {
       DigitsArray[Count].Value = ToCopy.DigitsArray[Count].Value;
-
+      DigitsArray[Count].BaseMultiple = ToCopy.DigitsArray[Count].BaseMultiple;
+      }
     }
 
 
@@ -148,7 +188,9 @@ namespace ExampleServer
     }
 
 
-
+  // Operations like these will make BaseValue invalid if those 
+  // values have been set previously.  So the BaseValues would
+  // have to be recalculated before they get used.
   internal void Add( ChineseRemainder ToAdd )
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
@@ -160,8 +202,9 @@ namespace ExampleServer
       // digit at a time.  Notice that there is no carry operation here.
       // As Claud Shannon would say, there is no diffusion here.
       DigitsArray[Count].Value += ToAdd.DigitsArray[Count].Value;
-      if( DigitsArray[Count].Value >= DigitsArray[Count].Prime )
-        DigitsArray[Count].Value -= DigitsArray[Count].Prime;
+      int Prime = (int)IntMath.GetPrimeAt( Count );
+      if( DigitsArray[Count].Value >= Prime )
+        DigitsArray[Count].Value -= Prime;
         // DigitsArray[Count].Value = DigitsArray[Count].Value % DigitsArray[Count].Prime;
 
       }
@@ -175,7 +218,7 @@ namespace ExampleServer
       {
       DigitsArray[Count].Value -= ToSub.DigitsArray[Count].Value;
       if( DigitsArray[Count].Value < 0 )
-        DigitsArray[Count].Value += DigitsArray[Count].Prime;
+        DigitsArray[Count].Value += (int)IntMath.GetPrimeAt( Count );
 
       }
     }
@@ -190,7 +233,7 @@ namespace ExampleServer
       // Claude Shannon wrote about in A Mathematical Theory of
       // Cryptography.
       DigitsArray[Count].Value *= ToMul.DigitsArray[Count].Value;
-      DigitsArray[Count].Value %= DigitsArray[Count].Prime;
+      DigitsArray[Count].Value %= (int)IntMath.GetPrimeAt( Count );
       }
     }
 
@@ -201,7 +244,7 @@ namespace ExampleServer
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
       {
-      DigitsArray[Count].Value = (int)IntMath.GetMod32( SetFrom, (uint)DigitsArray[Count].Prime );
+      DigitsArray[Count].Value = (int)IntMath.GetMod32( SetFrom, IntMath.GetPrimeAt( Count ));
       }
     }
 
@@ -211,7 +254,7 @@ namespace ExampleServer
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
       {
-      DigitsArray[Count].Value = (int)(SetFrom % (uint)DigitsArray[Count].Prime );
+      DigitsArray[Count].Value = (int)(SetFrom % (int)IntMath.GetPrimeAt( Count ));
       }
     }
 
@@ -234,3 +277,4 @@ namespace ExampleServer
 
   }
 }
+
