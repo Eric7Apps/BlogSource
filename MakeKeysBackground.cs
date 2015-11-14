@@ -372,6 +372,7 @@ namespace ExampleServer
     PubKeyExponent.SetFromULong( PubKeyExponentUint );
     int ShowBits = (PrimeIndex + 1) * 32;
     // int TestLoops = 0;
+    CRTCombinatorics CRTCombi = new CRTCombinatorics( CRTMath1, Worker, IntMath );
 
     Worker.ReportProgress( 0, "Bits size is: " + ShowBits.ToString());
 
@@ -503,6 +504,34 @@ namespace ExampleServer
       ChineseRemainder CRTTestDivideBy = new ChineseRemainder( IntMath );
       ChineseRemainder CRTTestQuotient = new ChineseRemainder( IntMath );
 
+      ChineseRemainder CRTSetupBaseTestPubKey = new ChineseRemainder( IntMath );
+      CRTSetupBaseTestPubKey.SetFromTraditionalInteger( PubKeyN, IntMath );
+      CRTMath1.SetupBaseMultiples( CRTSetupBaseTestPubKey );
+
+      Integer TestMultiples = new Integer();
+      CRTMath1.GetIntegerFromBaseMultiples( CRTSetupBaseTestPubKey, TestMultiples );
+      if( !TestMultiples.IsEqual( PubKeyN ))
+        throw( new Exception( "!TestMultiples.IsEqual( PubKeyN )." ));
+
+      ChineseRemainder CRTBaseGreaterTest = new ChineseRemainder( IntMath );
+      CRTBaseGreaterTest.SetFromTraditionalInteger( PrimeP, IntMath );
+      CRTMath1.SetupBaseMultiples( CRTBaseGreaterTest );
+      if( !CRTBaseGreaterTest.ParamIsGreater( CRTSetupBaseTestPubKey ))
+        throw( new Exception( "Magnitude test didn't work." ));
+
+      if( CRTSetupBaseTestPubKey.ParamIsGreater( CRTBaseGreaterTest ))
+        throw( new Exception( "Second magnitude test didn't work." ));
+
+      ChineseRemainder CRTTopTest = new ChineseRemainder( IntMath );
+      CRTCombi.FindBaseMultiplesFromTop( PrimeP, CRTTopTest );
+      if( Worker.CancellationPending )
+        {
+        CRTCombi.SetCancelled( true );
+        return;
+        }
+
+
+      ///////////////
       // Multiplicative Inverse test:
       CRTTestDivideBy.SetFromTraditionalInteger( PrimeP, IntMath );
       CRTTestProduct.SetFromTraditionalInteger( PubKeyN, IntMath );
