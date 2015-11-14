@@ -37,6 +37,8 @@ namespace ExampleServer
   internal ulong QuotientForTest = 0;
   private int[,] MultInverseArray;
   private BackgroundWorker Worker;
+  private Integer BaseModArrayModulus;
+
 
 
   private CRTMath()
@@ -227,6 +229,9 @@ namespace ExampleServer
     if( NumbersArray == null )
       throw( new Exception( "Bug: The NumbersArray should have been set up already." ));
 
+    if( CRTBaseModArray == null )
+      throw( new Exception( "Bug: The BaseModArray should have been set up already." ));
+
     // This first one has the prime 2 as its base so it's going to
     // be set to either zero or one.
     if( CRTInput.GetDigitAt( 0 ) == 1 )
@@ -240,29 +245,68 @@ namespace ExampleServer
       CRTAccumulateExact.SetToZero();
       }
 
+    uint HighestMatchForInverse = 0;
     // Count starts at 1, so it's the prime 3.
     for( int Count = 1; Count < ChineseRemainder.DigitsArraySize; Count++ )
       {
-      uint Prime = (uint)CRTInput.GetPrimeAt( Count );
+      uint Prime = IntMath.GetPrimeAt( Count );
       // Notice that this uses the regular CRTBaseArray here.
       // This BaseDigit is the whole base mod this Prime.
       uint BaseDigit = (uint)CRTBaseArray[Count].GetDigitAt( Count );
       if( BaseDigit == 0 )
-        continue;
+        throw( new Exception( "This never happens. BaseDigit == 0." ));
+
+      // These base digits are always the same every time this method is 
+      // called, with any input.  So BaseDigit is never zero.
+      // They are always these same series of numbers:
+      // BaseDigit at Count 1 is 2.  (2 mod 3 is 2.)
+      // BaseDigit at Count 2 is 1.  (6 mod 5 is 1.)
+      // BaseDigit at Count 3 is 2.  (30 mod 7 is 2.)
+      // At BaseArray[0] it's 1, 1, 1, 1, 1, .... all ones for all of them.
+      // 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 
+      // 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 1, 0, 0, 
+      // 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 1, 7, 11, 13, 4, 8, 2, 0, 0, 0, 
+
 
       // This is exactly the same as in GetTraditionalInteger().
       uint AccumulateDigit = (uint)CRTAccumulateExact.GetDigitAt( Count );
       // Not this:
       // uint AccumulateDigit = (uint)CRTAccumulate.GetDigitAt( Count );
 
-      uint CRTInputTestDigit = (uint)CRTInput.GetDigitAt( Count ); // 2
-      uint MatchForInverse = CRTInputTestDigit; // 2
-      if( MatchForInverse < AccumulateDigit ) // 7
-        MatchForInverse += Prime; // += 13 is 15
+      uint CRTInputTestDigit = (uint)CRTInput.GetDigitAt( Count );
+      uint MatchForInverse = CRTInputTestDigit;
+      if( MatchForInverse < AccumulateDigit )
+        MatchForInverse += Prime;
 
       MatchForInverse -= AccumulateDigit;
       uint Inverse = (uint)MultInverseArray[Count, BaseDigit];
       MatchForInverse = (MatchForInverse * Inverse) % Prime;
+
+      // HighestMatchForInverse relates the size of the modulus, in
+      // 32-bit digits, to the size of the base (with BaseDigit and
+      // BaseArray).  So if the highest non-zero match was 420, that's
+      // the 420th prime number.  Like IntMath.GetPrimeAt( 420 ).
+      // And like BaseArray[420].
+      // When 1024-bit primes are used the modulus is a 2048-bit number,
+      // and so its Index is 63. (That's 64 32-bit digits.)  But the
+      // size of the numbers that have to be reduced (CRTInput) are
+      // about the size of the modulus squared. (Plus another digit or
+      // so, see QuotientForTest in ModularPower().)  So the Index
+      // for those numbers is about 127 or 128 or so.  And so those
+      // are the numbers that can go up to about the 420th prime or
+      // so for the BaseArray.  That means that as many as 420 numbers
+      // get added up from the BaseArray in to CRTAccumulate.
+      // When MatchForInverse gets multiplied by the base, MatchForInverse
+      // is not bigger than the size of the prime at that point.  And
+      // so the size of the prime at each point, and the number of
+      // BaseArray parts that get added, contributes to the size of
+      // QuotientForTest.
+      if( MatchForInverse != 0 )
+        {
+        if( HighestMatchForInverse < Count )
+          HighestMatchForInverse = (uint)Count;
+
+        }
 
       // It uses the CRTBaseArray here.
       CRTWorkingTemp.Copy( CRTBaseArray[Count] );
@@ -275,6 +319,7 @@ namespace ExampleServer
       CRTAccumulate.Add( CRTWorkingTemp );
       }
 
+    Worker.ReportProgress( 0, "HighestMatchForInverse: " + HighestMatchForInverse.ToString() + " of " + ChineseRemainder.DigitsArraySize.ToString() + " and " + BaseModArrayModulus.GetIndex().ToString() );
     // Returns with CRTAccumulate for the value.
     }
     catch( Exception Except )
@@ -309,20 +354,21 @@ namespace ExampleServer
     // Count starts at 1, so it's the prime 3.
     for( int Count = 1; Count < ChineseRemainder.DigitsArraySize; Count++ )
       {
-      uint Prime = (uint)CRTInput.GetPrimeAt( Count );
+      uint Prime = IntMath.GetPrimeAt( Count );
       uint AccumulateDigit = (uint)CRTAccumulate.GetDigitAt( Count );
       uint CRTInputTestDigit = (uint)CRTInput.GetDigitAt( Count );
       uint BaseDigit = (uint)CRTBaseArray[Count].GetDigitAt( Count );
       if( BaseDigit == 0 )
-        continue;
+        throw( new Exception( "This never happens. BaseDigit == 0." ));
 
-      uint MatchingPrime = CRTInputTestDigit; // 2
-      if( MatchingPrime < AccumulateDigit ) // 7
-        MatchingPrime += Prime; // += 13 is 15
+      uint MatchingValue = CRTInputTestDigit;
+      if( MatchingValue < AccumulateDigit )
+        MatchingValue += Prime;
 
-      MatchingPrime -= AccumulateDigit;
+      MatchingValue -= AccumulateDigit;
       uint Inverse = (uint)MultInverseArray[Count, BaseDigit];
-      MatchingPrime = (MatchingPrime * Inverse) % Prime;
+      MatchingValue = (MatchingValue * Inverse) % Prime;
+      // This loop is for bug testing.
       for( uint CountPrime = 0; CountPrime < Prime; CountPrime++ )
         {
         uint ToTestInt = BaseDigit;
@@ -331,16 +377,9 @@ namespace ExampleServer
         ToTestInt %= Prime;
         if( CRTInputTestDigit == ToTestInt )
           {
-          if( MatchingPrime != CountPrime )
+          if( MatchingValue != CountPrime )
             {
-            string ShowS = "\r\nIn GetTraditionalInteger()\r\nMatchingPrime: " + MatchingPrime.ToString() + "\r\n" +
-                             "CountPrime: " + CountPrime.ToString() + "\r\n" + 
-                             "Prime: " + Prime.ToString() + "\r\n" + 
-                             "BaseDigit: " + BaseDigit.ToString() + "\r\n" +
-                             "AccumulateDigit: " + AccumulateDigit.ToString() + "\r\n" +
-                             "CRTInputTestDigit: " + CRTInputTestDigit.ToString();
-
-            throw( new Exception( ShowS ));
+            throw( new Exception( "Bug: MatchingValue is not right." ));
             }
  
           // Notice that the first time through this loop it's zero, so the
@@ -358,7 +397,7 @@ namespace ExampleServer
           }
         }
 
-      // The Integers have to be big enough to multiply this base.
+      // Integer.DigitArraySize has to be big enough to multiply this base.
       IntMath.MultiplyUInt( BigBase, Prime );
       // CRTBigBase.Multiply( NumbersArray[Prime] );
       }
@@ -405,6 +444,132 @@ It accumulates values like this:
 
 
 
+  internal void SetupBaseMultiples( ChineseRemainder ToSetup )
+    {
+    try
+    {
+    if( NumbersArray == null )
+      throw( new Exception( "Bug: The NumbersArray should have been set up already." ));
+
+    Integer Accumulate = new Integer();
+    // This first one has the prime 2 as its base so it's going to
+    // be set to either zero or one.
+    Accumulate.SetFromULong( (uint)ToSetup.GetDigitAt( 0 ));
+
+    ChineseRemainder CRTAccumulate = new ChineseRemainder( IntMath );
+
+    // CRTBaseArray[0] is 1.
+    if( ToSetup.GetDigitAt( 0 ) == 1 )
+      {
+      // SetBaseMultiple( int SetTo, int Index )
+      ToSetup.SetBaseMultiple( 1, 0 ); // 1 times 1 for this base.
+      CRTAccumulate.SetToOne();
+      }
+    else
+      {
+      ToSetup.SetBaseMultiple( 0, 0 );
+      CRTAccumulate.SetToZero();
+      }
+
+    Integer BigBase = new Integer();
+    BigBase.SetFromULong( 2 );
+
+    // Count starts at 1, so it's at the prime 3.
+    for( int Count = 1; Count < ChineseRemainder.DigitsArraySize; Count++ )
+      {
+      int Prime = (int)IntMath.GetPrimeAt( Count );
+      int AccumulateDigit = CRTAccumulate.GetDigitAt( Count );
+      int CRTInputTestDigit = ToSetup.GetDigitAt( Count );
+      int BaseDigit = CRTBaseArray[Count].GetDigitAt( Count );
+      if( BaseDigit == 0 )
+        throw( new Exception( "This never happens. BaseDigit == 0." ));
+
+      int MatchingValue = CRTInputTestDigit;
+      if( MatchingValue < AccumulateDigit )
+        MatchingValue += Prime;
+
+      MatchingValue -= AccumulateDigit;
+      int Inverse = MultInverseArray[Count, BaseDigit];
+      MatchingValue = (MatchingValue * Inverse) % Prime;
+      // This loop is for bug testing.
+      for( int CountPrime = 0; CountPrime < Prime; CountPrime++ )
+        {
+        int ToTestInt = BaseDigit;
+        ToTestInt *= CountPrime;
+        ToTestInt += AccumulateDigit;
+        ToTestInt %= Prime;
+        if( CRTInputTestDigit == ToTestInt )
+          {
+          if( MatchingValue != CountPrime )
+            {
+            throw( new Exception( "Bug: MatchingValue is not right." ));
+            }
+ 
+          ToSetup.SetBaseMultiple( MatchingValue, Count );
+
+          ToTestForTraditionalInteger.Copy( BigBase );
+          CRTToTestForTraditionalInteger.Copy( CRTBaseArray[Count] );
+          IntMath.MultiplyUInt( ToTestForTraditionalInteger, (uint)CountPrime );
+          CRTToTestForTraditionalInteger.Multiply( NumbersArray[CountPrime] );
+          Accumulate.Add( ToTestForTraditionalInteger );
+          CRTAccumulate.Add( CRTToTestForTraditionalInteger );
+          break;
+          }
+        }
+
+      // Integer.DigitArraySize has to be big enough to multiply this base.
+      IntMath.MultiplyUInt( BigBase, (uint)Prime );
+      // CRTBigBase.Multiply( NumbersArray[Prime] );
+      }
+
+    if( !IsEqualToInteger( CRTAccumulate, Accumulate ))
+      throw( new Exception( "CRTAccumulate not equal to Accumulate in GetTraditionalInteger()." ));
+
+    // Returns with CRTAccumulate for the value.
+    }
+    catch( Exception Except )
+      {
+      throw( new Exception( "Exception in SetupBaseMultiples(): " + Except.Message ));
+      }
+    }
+
+
+
+  internal void GetIntegerFromBaseMultiples( ChineseRemainder ToGetFrom, Integer ToGet )
+    {
+    try
+    {
+    if( BaseArray == null )
+      throw( new Exception( "Bug: The BaseArray should have been set up already." ));
+
+    // This first one has the prime 2 as its base so it's going to
+    // be set to either zero or one.
+    if( ToGetFrom.GetBaseMultiple( 0 ) == 1 )
+      ToGet.SetToOne();
+    else
+      ToGet.SetToZero();
+
+    Integer WorkingBase = new Integer();
+    for( int Count = 1; Count < ChineseRemainder.DigitsArraySize; Count++ )
+      {
+      int BaseMult = ToGetFrom.GetBaseMultiple( Count );
+      WorkingBase.Copy( BaseArray[Count] );
+      IntMath.MultiplyUInt( WorkingBase, (uint)BaseMult );
+      ToGet.Add( WorkingBase );
+      if( ToGetFrom.GetDigitAt( Count ) != (int)IntMath.GetMod32( ToGet, IntMath.GetPrimeAt( Count )))
+        throw( new Exception( "Bug in GetIntegerFromBaseMultiples()." ));
+
+      // int AccumulateDigit = CRTAccumulate.GetDigitAt( Count );
+      }
+
+    // Returns with ToGet for the value.
+    }
+    catch( Exception Except )
+      {
+      throw( new Exception( "Exception in GetIntegerFromBaseMultiples(): " + Except.Message ));
+      }
+    }
+
 
 
 /*
@@ -416,6 +581,7 @@ in the ChineseRemainder.cs file.)
 But the ones in BaseModArray only have the zeros at the bottom
 on the ones that are smaller than the modulus.
 
+At BaseArray[0] it's 1, 1, 1, 1, 1, .... for all of them.
 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 
 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 1, 0, 0, 
 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 1, 7, 11, 13, 4, 8, 2, 0, 0, 0, 
@@ -464,6 +630,7 @@ on the ones that are smaller than the modulus.
 
     // Count starts at 1, so it's the prime 3.
     // The first time through the loop the base is set to 2.
+    // So BaseArray[0] = 1;
     // So BaseArray[1] = 2;
     // So BaseArray[2] = 6;
     // So BaseArray[3] = 30;
@@ -513,6 +680,8 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
     {
     try
     {
+    BaseModArrayModulus = Modulus;
+
     if( NumbersArray == null )
       throw( new Exception( "NumbersArray should have already been setup in SetupBaseModArray()." ));
 
@@ -565,6 +734,19 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
 
 
 
+  internal Integer GetBaseIntegerAt( int Index )
+    {
+    if( BaseArray == null )
+      throw( new Exception( "The BaseArray should have already been set up here." ));
+
+    if( Index >= BaseArray.Length )
+      throw( new Exception( "Index is past BaseArray in GetBaseIntegerAt()." ));
+
+    return BaseArray[Index];
+    }
+
+
+
   private void SetupNumbersArray()
     {
     try
@@ -600,100 +782,9 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
 
 
 
-    /*
-    IsMatchingPattern()
-
-
-    ||.||         octet length operator
-    As in: "If ||M|| > emLen-2hLen-1 then output 'message too long'".
-
-    ||            concatenation operator
-    As in:
-    "Concatenate pHash, PS, the message M, and other padding to form a
-     data block DB as: DB = pHash || PS || 01 || M"
-
-    "Generate an octet string PS consisting of emLen-||M||-2hLen-1 zero
-    "octets. The length of PS may be 0."
-
-    "4. Let pHash = Hash(P), an octet string of length hLen."
-
-
-Notation
-
-   (n, e)        RSA public key
-
-   c             ciphertext representative, an integer between 0 and n-1
-
-   C             ciphertext, an octet string
-
-   d             private exponent
-
-   dP            p's exponent, a positive integer such that:
-                  e(dP)\equiv 1 (mod(p-1))
-
-   dQ            q's exponent, a positive integer such that:
-                  e(dQ)\equiv 1 (mod(q-1))
-
-   e             public exponent
-
-   EM            encoded message, an octet string
-
-   emLen         intended length in octets of an encoded message
-
-   H             hash value, an output of Hash
-
-   Hash          hash function
-
-   hLen          output length in octets of hash function Hash
-
-   K             RSA private key
-
-   k             length in octets of the modulus
-
-   l             intended length of octet string
-
-   lcm(.,.)      least common multiple of two
-                 nonnegative integers
-
-   m             message representative, an integer between
-                 0 and n-1
-
-   M             message, an octet string
-
-   MGF           mask generation function
-
-   n             modulus
-
-   P             encoding parameters, an octet string
-
-   p,q           prime factors of the modulus
-
-   qInv          CRT coefficient, a positive integer less
-                 than p such: q(qInv)\equiv 1 (mod p)
-
-   s             signature representative, an integer
-                 between 0 and n-1
-
-   S             signature, an octet string
-
-   x             a nonnegative integer
-
-   X             an octet string corresponding to x
-
-   \xor          bitwise exclusive-or of two octet strings
-
-   \lambda(n)    lcm(p-1, q-1), where n = pq
-
-      */
-
-
 
   internal void MultiplicativeInverse( ChineseRemainder Dividend, ChineseRemainder DivideBy, ChineseRemainder Quotient )
     {
-    // When the MultInverseArray is set up:
-    // if( ((MultCount * Digit) % Prime) == 1 )
-    //   MultInverseArray[Count, Digit] = MultCount;
-
     // DivideBy times (what) equals Dividend?
     for( int Count = 0; Count < ChineseRemainder.DigitsArraySize; Count++ )
       {
