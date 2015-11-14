@@ -80,6 +80,7 @@ namespace ExampleServer
     }
 
 
+
   internal void SetToZero()
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
@@ -195,26 +196,6 @@ namespace ExampleServer
 
 
 
-  // This is the closest this has to Divide().
-  internal void ModularInverse( ChineseRemainder ToDivide )
-    {
-    // ToDivide times what equals this number?
-    for( int Count = 0; Count < DigitsArraySize; Count++ )
-      {
-      for( int CountPrime = 0; CountPrime < DigitsArray[Count].Prime; CountPrime++ )
-        {
-        int Test = CountPrime * ToDivide.DigitsArray[Count].Value;
-        Test = Test % DigitsArray[Count].Prime;
-        if( Test == DigitsArray[Count].Value )
-          {
-          DigitsArray[Count].Value = CountPrime;
-          break;
-          }
-        }
-      }
-    }
-
-
 
   internal void SetFromTraditionalInteger( Integer SetFrom, IntegerMath IntMath )
     {
@@ -232,6 +213,22 @@ namespace ExampleServer
       {
       DigitsArray[Count].Value = (int)(SetFrom % (uint)DigitsArray[Count].Prime );
       }
+    }
+
+
+
+  internal string GetString()
+    {
+    StringBuilder SBuilder = new StringBuilder();
+    for( int Count = 20; Count >= 0; Count-- )
+      {
+      string ShowS = DigitsArray[Count].Value.ToString() + ", ";
+      // DigitsArray[Count].Prime
+
+      SBuilder.Append( ShowS );
+      }
+
+    return SBuilder.ToString();
     }
 
 
