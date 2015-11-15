@@ -25,6 +25,11 @@ namespace ExampleServer
   // want to make it dynamic so it can grow as needed.
 
   // If this array size is changed then test it with ChineseRemainder.
+  // When this is set to ((1024 * 12) / 32) + 1 it's barely big
+  // enough to work for 2048-bit primes in CRTMath.cs in
+  // ModularReduction().  The number 770 in this example is
+  // ChineseRemainder.DigitsArraySize.
+  // HighestMatchForInverse: 760 of 770 and 127
   internal const int DigitArraySize = ((1024 * 12) / 32) + 1;
 
 
