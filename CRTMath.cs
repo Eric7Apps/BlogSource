@@ -38,6 +38,7 @@ namespace ExampleServer
   private int[,] MultInverseArray;
   private BackgroundWorker Worker;
   private Integer BaseModArrayModulus;
+  private bool Cancelled = false;
 
 
 
@@ -78,6 +79,11 @@ namespace ExampleServer
     SetMultiplicativeInverses();
     }
 
+
+  internal void SetCancelled( bool SetTo )
+    {
+    Cancelled = SetTo;
+    }
 
 
   private void SetMultiplicativeInverses()
@@ -213,6 +219,10 @@ namespace ExampleServer
     // QuotientForTest: 43,681
     // QuotientForTest: 44,396
     // QuotientForTest: 41,845
+    // QuotientForTest: 36,829
+    // QuotientForTest: 43,919
+    // QuotientForTest: 32,238
+    // QuotientForTest: 37,967
 
     Result.Copy( Remainder );
     CRTResult.SetFromTraditionalInteger( Remainder, IntMath );
@@ -807,6 +817,147 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
         throw( new Exception( "Test != Dividend.GetDigitAt( Count ) in MultiplicativeInverse()." ));
       */
       }
+    }
+
+
+
+  // This is just a different way of setting the base multiples.
+  // It is orders of magnitude slower than SetupBaseMultiples()
+  // but it's just to show how it can be done from the top.
+  internal void SetBaseMultiplesFromInteger( Integer FindFrom,
+                                             ChineseRemainder CRTToSet )
+    {
+    CRTToSet.SetAllBaseMultiplesToZero();
+
+    int TopIndex = 0;
+    for( int Count = ChineseRemainder.DigitsArraySize - 1; Count >= 0; Count-- )
+      {
+      if( Cancelled )
+        return;
+
+      Integer BaseVal = GetBaseIntegerAt( Count );
+      if( BaseVal.ParamIsGreater( FindFrom ))
+        {
+        TopIndex = Count;
+        Worker.ReportProgress( 0, Count.ToString() + ") BaseVal is small enough." );
+        break;
+        }
+      }
+
+    Integer WorkingTotal = new Integer();
+    uint Prime = IntMath.GetPrimeAt( TopIndex );
+    uint Biggest = Prime - 1;
+    int NextIndex = 0;
+    for( uint TopCount = Biggest; TopCount >= 1; TopCount-- )
+      {
+      if( Cancelled )
+        return;
+
+      WorkingTotal.Copy( GetBaseIntegerAt( TopIndex ));
+      IntMath.MultiplyUInt( WorkingTotal, TopCount );
+      if( FindFrom.ParamIsGreater( WorkingTotal ))
+        continue;
+
+      // Worker.ReportProgress( 0, "BiggestTop value is: " + TopCount.ToString() );
+      // Worker.ReportProgress( 0, "Prime is: " + Prime.ToString() );
+      CRTToSet.SetBaseMultiple( (int)TopCount, TopIndex );
+      NextIndex = (int)TopIndex - 1;
+      break;
+      }
+
+    // Worker.ReportProgress( 0, " " );
+    // Worker.ReportProgress( 0, "NextIndex after first value set: " + NextIndex.ToString() );
+
+    // while( not forever )
+    for( int Count = 0; Count < 10000; Count++ )
+      {
+      if( Cancelled )
+        return;
+
+      // Worker.ReportProgress( 0, " " );
+      // Worker.ReportProgress( 0, "Found the next index at: " + NextIndex.ToString() );
+      Prime = IntMath.GetPrimeAt( NextIndex );
+      // Worker.ReportProgress( 0, "Prime is: " + Prime.ToString() );
+
+      NextIndex = FindBaseMultipleAt( FindFrom,
+                                      CRTToSet,
+                                      TopIndex,
+                                      NextIndex );
+
+      if( NextIndex < 0 )
+        break;
+
+      }
+
+    Integer Accumulate = new Integer();
+    AccumulateTotal( CRTToSet,
+                     TopIndex,
+                     Accumulate );
+
+    if( FindFrom.ParamIsGreater( Accumulate ))
+      throw( new Exception( "Bug. Accumulate is bigger." ));
+
+    if( !Accumulate.IsEqual( FindFrom ))
+      throw( new Exception( "Accumulate isn't right in SetBaseMultiplesFromInteger()." ));
+
+    // This just sets the digits in the array to match the magnitudes.
+    // It's kind of like two different and independent, but closely
+    // related number systems mixed in together.
+    CRTToSet.SetFromTraditionalInteger( FindFrom, IntMath );
+
+    Worker.ReportProgress( 0, "Finished with SetBaseMultiplesFromInteger()." );
+    Worker.ReportProgress( 0, " " );
+    }
+
+
+
+  internal void AccumulateTotal( ChineseRemainder CRTToSet,
+                                int TopIndex,
+                                Integer Accumulate )
+    {
+    Integer OnePart = new Integer();
+
+    Accumulate.SetToZero();
+    for( int Count = TopIndex; Count >= 0; Count-- )
+      {
+      int BaseMult = CRTToSet.GetBaseMultiple( Count );
+      if( BaseMult == 0 )
+        continue;
+
+      OnePart.Copy( GetBaseIntegerAt( Count ));
+      IntMath.MultiplyUInt( OnePart, (uint)BaseMult );
+      Accumulate.Add( OnePart );
+      }
+    }
+
+
+  internal int FindBaseMultipleAt( Integer FindFrom,
+                                 ChineseRemainder CRTToSet,
+                                 int TopIndex,
+                                 int FindAtIndex )
+    {
+    Integer Accumulate = new Integer();
+
+    int Prime = (int)IntMath.GetPrimeAt( FindAtIndex );
+    int Biggest = Prime - 1;
+    for( int Count = Biggest; Count >= 0; Count-- )
+      {
+      if( Cancelled )
+        return -1;
+
+      CRTToSet.SetBaseMultiple( Count, FindAtIndex );
+      AccumulateTotal( CRTToSet,
+                       TopIndex,
+                       Accumulate );
+
+      if( Accumulate.ParamIsGreaterOrEq( FindFrom ))
+        {
+        // Worker.ReportProgress( 0, "Found the BaseMultiple: " + Count.ToString() );
+        return FindAtIndex - 1;
+        }
+      }
+
+    throw( new Exception( "Bug in FindBaseMultipleAt(). Got to the bottom." ));
     }
 
 
