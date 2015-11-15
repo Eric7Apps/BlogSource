@@ -25,7 +25,7 @@ namespace ExampleServer
   // want to make it dynamic so it can grow as needed.
 
   // If this array size is changed then test it with ChineseRemainder.
-  internal const int DigitArraySize = ((1024 * 16) / 32) + 1;
+  internal const int DigitArraySize = ((1024 * 12) / 32) + 1;
 
 
 
@@ -931,126 +931,148 @@ namespace ExampleServer
 
 
 
-  internal bool SetFromULongBigEndianByteArray( byte[] BytesToSet )
+  /*
+  private void SetOneDValueFromByte( ulong ToSet, int Position, int Offset )
     {
-    IsNegative = false;
-    if( BytesToSet == null )
-      return false;
+    if( Position >= D.Length )
+      throw( new Exception( "Position >= D.Length in SetOneDValueFromByte." ));
 
-    if( BytesToSet.Length > 8 )
-      return false;
+    Put this in the right order.
 
-    ulong ToSet = 0;
-    for( int Count = 0; Count < BytesToSet.Length; Count++ )
-      {
+    if( Offset == 1 )
       ToSet <<= 8;
-      ToSet |= BytesToSet[Count];
-      }
 
-    SetFromULong( ToSet );
-    return true;
+    if( Offset == 2 )
+      ToSet <<= 16;
+
+    if( Offset == 3 )
+      ToSet <<= 24;
+
+    // This assumes I'm setting them from zero upward.
+    // So if the position is zero it's not ORed with the value at D.
+    if( Offset == 0 )
+      D[Position] = ToSet;
+    else
+      D[Position] |= ToSet;
+
+    if( Index < Position )
+      Index = Position;
+
     }
 
 
 
-  internal bool SetFromBigEndianByteArray( byte[] BytesToSet )
+  private byte GetOneByteFromDValue( int Position, int Offset )
     {
+    if( Position >= D.Length )
+      throw( new Exception( "Position >= D.Length in GetOneByteFromDValue." ));
+
+    if( Offset == 0 )
+      {
+      return (byte)(D[Position] & 0xFF);
+      }
+
+    if( Offset == 1 )
+      {
+      return (byte)((D[Position] >> 8) & 0xFF);
+      }
+
+    if( Offset == 2 )
+      {
+      return (byte)((D[Position] >> 16) & 0xFF);
+      }
+
+    if( Offset == 3 )
+      {
+      return (byte)((D[Position] >> 24) & 0xFF);
+      }
+
+    throw( new Exception( "The offset was not right in GetOneByteFromDValue()." ));
+    }
+    */
+
+
+  // ====== Get this right and check it with the RSA modulus from a server.
+  // Because of the standards used with TLS, this will typically have one
+  // leading zero byte so that it doesn't get confused with a negative
+  // sign bit.  Sometimes it will, sometimes it won't.
+  internal void SetFromBigEndianByteArray( byte[] InArray )
+    {
+    /*
+    // What about that leading zero byte?
+
+    // Not like this...
+    // Array.Reverse( InArray ); // Make it little-endian.
+
     IsNegative = false;
-    if( BytesToSet == null )
-      return false;
-
-    if( BytesToSet.Length > (DigitArraySize - 3))
-      return false;
-
-    if( BytesToSet.Length <= 8 )
-      return SetFromULongBigEndianByteArray( BytesToSet );
-
-    Array.Reverse( BytesToSet ); // Make it little-endian.
-    ulong Digit = 0;
     Index = 0;
+    if( InArray.Length > (DigitArraySize - 3))
+      throw( new Exception( "Position >= D.Length in SetFromBigEndianByteArray()." ));
 
-    // BytesToSet.Length is more than 8 here.
-    for( int Count = 0; (Count + 3) < BytesToSet.Length; Count += 4 )
+    for( int Count = 0; Count < DigitArraySize; Count++ )
+      D[Count] = 0;
+
+    int OneByte = 0;
+    int Position = 0;
+    int Offset = 0;
+    for( int Count = 0; Count < InArray.Length; Count++ )
       {
-      Digit = BytesToSet[Count + 3];
-      Digit <<= 8;
-      Digit |= BytesToSet[Count + 2];
-      Digit <<= 8;
-      Digit |= BytesToSet[Count + 1];
-      Digit <<= 8;
-      Digit |= BytesToSet[Count];
+      OneByte = InArray[Count];
+      // This sets the Index when the Index needs to move up.
+      SetOneDValueFromByte( (ulong)OneByte, Position, Offset );
+      if( Offset == 3 )
+        Position++;
 
-      D[Index] = Digit;
-      Index++;
+      Offset++;
+      Offset = Offset % 4;
+      // Offset = Offset & 0x3;
       }
 
-    // If the length isn't a multiple of 4.
-    if( (BytesToSet.Length & 3) != 0 )
-      {
-      int HowManyLeft = BytesToSet.Length & 3;
-      int Where = BytesToSet.Length - 1;
-      Digit = 0;
-      for( int Count = 0; Count < HowManyLeft; Count++ )
-        {
-        Digit <<= 8;
-        Digit |= BytesToSet[Where];
-        Where--;
-        }
-
-      D[Index] = Digit;
-      // And then leave the Index there.
-      }
-    else
-      {
-      Index--;
-      }
-
-    // Make sure there isn't a zero at the top.
+    // Make sure it doesn't have leading zeros.
     for( int Count = Index; Count >= 0; Count-- )
       {
       if( D[Count] != 0 )
+        {
+        Index = Count;
         break;
-
-      Index--;
-      if( Index == 0 )
-        break;
-
+        }
       }
-
-    // Test:
-    for( int Count = 0; Count <= Index; Count++ )
-      {
-      if( (D[Count] >> 32) != 0 )
-        throw( new Exception( "(D[Count] >> 32) != 0 for Integer.SetFromBigEndianByteArray()." ));
-
-      }
-
-    return true;
+    */
     }
-
 
 
   internal byte[] GetBigEndianByteArray()
     {
-    byte[] Result = new byte[(Index + 1) * 4];
-
-    int Where = 0;
-    for( int Count = Index; Count >= 0; Count-- )
+    return null;
+    /*
+    byte[] TempResult = new byte[(Index + 1) * 4];
+    for( int Count = 0; Count <= Index; Count++ )
       {
-      ulong Digit = D[Count];
-      Result[Where] = (byte)((Digit >> 24) & 0xFF);
-      Where++;
-      Result[Where] = (byte)((Digit >> 16) & 0xFF);
-      Where++;
-      Result[Where] = (byte)((Digit >> 8) & 0xFF);
-      Where++;
-      Result[Where] = (byte)(Digit & 0xFF);
-      Where++;
+      int Offset = 0;
+      char OneChar = GetOneCharFromDValue( Count, Offset );
+      if( OneChar >= ' ' )
+        SBuilder.Append( OneChar );
+  
+      Offset = 1;
+      OneChar = GetOneCharFromDValue( Count, Offset );
+      // It could be missing upper characters at the top, so they'd be zero.
+      if( OneChar >= ' ' )
+        SBuilder.Append( OneChar );
+  
+      Offset = 2;
+      OneChar = GetOneCharFromDValue( Count, Offset );
+      if( OneChar >= ' ' )
+        SBuilder.Append( OneChar );
+
+      Offset = 3;
+      OneChar = GetOneCharFromDValue( Count, Offset );
+      if( OneChar >= ' ' )
+        SBuilder.Append( OneChar );
+
       }
 
-    // This is likely to have one or more leading zero bytes,
-    // but not necessarily.
-    return Result;
+    return SBuilder.ToString();
+    */
     }
 
 
