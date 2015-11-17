@@ -78,12 +78,11 @@ namespace ExampleServer
 
   // private Integer[] AccumulateArray;
   private Integer[] BaseWorkArray1;
-  private uint[] DivisionArray;
   private uint[] PrimeArray;
   internal const int PrimeArrayLength = 1024 * 32;
   private string StatusString = "";
   private bool Cancelled = false;
-
+  private int[,] ByteStats;
 
 
 
@@ -137,6 +136,7 @@ namespace ExampleServer
     TempForModPower = new Integer();
     OriginalValue = new Integer();
     AccumulateBase = new Integer();
+    ByteStats = new int[256,256];
 
     MakePrimeArray();
     }
@@ -2326,6 +2326,7 @@ namespace ExampleServer
 
 
 
+
   internal void ModularPower( Integer Result, Integer Exponent, Integer Modulus ) // , bool DoQuotientTest )
     {
     // The square and multiply method is in Wikipedia:
@@ -2333,6 +2334,7 @@ namespace ExampleServer
     // x^n = (x^2)^((n - 1)/2) if n is odd.
     // x^n = (x^2)^(n/2)       if n is even.
 
+    byte InputByteStat = (byte)(Result.GetD( 0 ) & 0xFF);
     if( Result.IsZero())
       return; // With Result still zero.
 
@@ -2387,6 +2389,10 @@ namespace ExampleServer
       ModularReduction( TempForModPower, XForModPower );
       XForModPower.Copy( TempForModPower );
       }
+
+    // int StatsAverage = GetByteStatsAverage();
+    byte OutputByteStat = (byte)(Result.GetD( 0 ) & 0xFF);
+    ByteStats[InputByteStat, OutputByteStat] += 1;
 
     // When ModularReduction() gets called it multiplies a base number
     // by a uint sized digit.  So that can make the result one digit bigger
@@ -2469,6 +2475,26 @@ namespace ExampleServer
 
     Result.Copy( Remainder );
     }
+
+
+
+  // And get standard deviation and all that.
+  internal int GetByteStatsAverage()
+    {
+    int Sum = 0;
+    int Count = 0;
+    for( int InCount = 0; InCount < 256; InCount++ )
+      {
+      for( int OutCount = 0; OutCount < 256; OutCount++ )
+        {
+        Sum += ByteStats[InCount, OutCount];
+        Count++;
+        }
+      }
+
+    return Sum / Count;
+    }
+
 
 
   // To use when the base array is pre-set for PrimeP.
@@ -3228,131 +3254,6 @@ namespace ExampleServer
       {
       throw( new Exception( "Exception in ShowBinomialCoefficients()." + Except.Message ));
       }
-    }
-
-
-
-  internal void SetupDivisionArray()
-    {
-    // If you were going to try and find the prime factors of a number,
-    // the most basic way would be to divide it by every prime up to the
-    // prime that finally divides it evenly.  The problem with doing that
-    // is that it takes longer to figure out if a number is a prime than
-    // it does to just test a lot of numbers that are less likely to be
-    // composite than other numbers.  Any table of primes like the one
-    // in IntegerMath.PrimeArray would only last for a split second, then
-    // you'd have to go on to some other method for bigger numbers.
-
-    // If you pick a number at random, then statistically, half of all
-    // numbers are odd, a third of all numbers are divisible by 3, a 
-    // fifth of all numbers are divisible by 5, a seventh of all numbers
-    // are divisible by 7, and so on.  So you can reduce the amount of
-    // numbers that you test with by getting rid of those numbers that
-    // are divisible by small primes.
-
-    // The Euler Phi function shows the number of numbers that are relatively
-    // prime to some other number.  So it gives you the size of the array
-    // for these numbers.  It is (2 - 1)(3 - 1)(5 - 1)... and so on.
-    uint Base = 2 * 3 * 5 * 7 * 11 * 13 * 17;
-    uint EulerPhi = 2 * 4 * 6 * 10 * 12 * 16;
-    DivisionArray = new uint[EulerPhi];
-
-    // The first few numbers in this array are: 
-    // 1, 19, 23, 29, 31, 37, 41 ... and so on.
-
-    int Index = 0;
-    for( uint Count = 0; Count < Base; Count++ )
-      {
-      if( (Count & 1) == 0 ) // If its an even number.
-        continue;
-
-      if( (Count % 3) == 0 ) // If its divisible by 3.
-        continue;
-
-      if( (Count % 5) == 0 )
-        continue;
-
-      if( (Count % 7) == 0 )
-        continue;
-
-      if( (Count % 11) == 0 )
-        continue;
-
-      if( (Count % 13) == 0 )
-        continue;
-
-      if( (Count % 17) == 0 )
-        continue;
-
-      DivisionArray[Index] = Count;
-      Index++;
-      }
-    }
-
-
-
-  internal uint NumberIsDivisibleByUInt( Integer ToCheck,  BackgroundWorker Worker )
-    {
-    if( DivisionArray == null )
-      throw( new Exception( "The DivisionArray should have been set up before calling this." ));
-
-    uint Base = 2 * 3 * 5 * 7 * 11 * 13 * 17;
-    uint EulerPhi = 2 * 4 * 6 * 10 * 12 * 16;
-    uint Base19 = Base * 19;
-    uint Base23 = Base19 * 23;
-
-    // The first few base numbers like this:
-    // 2             2
-    // 3             6
-    // 5            30
-    // 7           210
-    // 11        2,310
-    // 13       30,030
-    // 17      510,510
-    // 19    9,699,690
-    // 23  223,092,870
-
-    // These loops count up to 223,092,870 - 1.
-    for( uint Count23 = 0; Count23 < 23; Count23++ )
-      {
-      uint Base23Part = (Base19 * Count23);
-      for( uint Count19 = 0; Count19 < 19; Count19++ )
-        {
-        uint Base19Part = Base * Count19;
-        // if( Worker.CancellationPending )
-          // return 0;
-
-        for( int Count = 0; Count < EulerPhi; Count++ )
-          {
-          if( Worker.CancellationPending )
-            return 0;
-
-          uint Test = Base23Part + Base19Part + DivisionArray[Count];
-          if( Test == 1 )
-            continue;
-
-          if( (Test % 19) == 0 )
-            continue;
-
-          if( (Test % 23) == 0 )
-            continue;
-
-          // if( (Count < 100) && (Count19 == 1) && (Count23 == 0) )
-            // Worker.ReportProgress( 0, "Test value: " + Test.ToString( "N0" ));
-
-          // if( (Count & 0x3FFFFFFF) == 1 )
-            // Worker.ReportProgress( 0, "Testing with: " + Test.ToString( "N0" ));
-
-          if( 0 == GetMod32( ToCheck, Test ))
-            {
-            Worker.ReportProgress( 0, "The number is divisible by: " + Test.ToString( "N0" ));
-            return Test;
-            }
-          }
-        }
-      }
-
-    return 0; // Didn't find a number to divide it.
     }
 
 
