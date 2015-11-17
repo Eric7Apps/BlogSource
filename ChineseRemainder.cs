@@ -14,12 +14,24 @@ namespace ExampleServer
 {
   internal struct OneDigit
     {
-    // internal int Prime;
     internal int Value; // Digit value.
     // The BaseMultiple gives these numbers magnitude.
-    internal int BaseMultiple; // The MatchingValue found.
+    internal int BaseMultiple;
     }
 
+
+
+  // The numbers used here (like each Digit Value) could be in any
+  // arbitrary order, but they have to be consistent with the primes
+  // associated with each digit.  So for example doing
+  // IntMath.GetPrimeAt( Count ) works with these digits because
+  // they are in the same order as those primes, but if the primes
+  // were put in to an array with some other arbitrary order, like
+  // 7, 5, 13, 3, .... then it would still work, as long as
+  // it was done consistently throughout this number system.
+  // So for example SetFromTraditionalInteger() would still work
+  // with some other arbitrary order of primes.
+  // See also CRTMath.SetupBaseArray() for more info on that.
 
 
   class ChineseRemainder
@@ -30,7 +42,7 @@ namespace ExampleServer
   // it isn't too big for the MultplyUint that's done in
   // GetTraditionalInteger().  Also it has to be checked with the Max
   // Value test.
-  internal const int DigitsArraySize = Integer.DigitArraySize * 2; // Index is 1024?
+  internal const int DigitsArraySize = Integer.DigitArraySize * 2;
 
 
   /*
@@ -90,6 +102,16 @@ namespace ExampleServer
 
     return DigitsArray[Index].BaseMultiple;
     }
+
+
+
+  internal void SetAllBaseMultiplesToZero()
+    {
+    for( int Count = 0; Count < DigitsArraySize; Count++ )
+      DigitsArray[Count].BaseMultiple = 0;
+
+    }
+
 
 
 
@@ -188,9 +210,10 @@ namespace ExampleServer
     }
 
 
-  // Operations like these will make BaseValue invalid if those 
-  // values have been set previously.  So the BaseValues would
-  // have to be recalculated before they get used.
+
+  // Operations like these will make the BaseMultiples invalid if
+  // those values have been set previously.  So the BaseMultiples
+  // would have to be recalculated before they get used.
   internal void Add( ChineseRemainder ToAdd )
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
@@ -223,6 +246,30 @@ namespace ExampleServer
       }
     }
 
+
+
+  internal void Decrement1()
+    {
+    for( int Count = 0; Count < DigitsArraySize; Count++ )
+      {
+      DigitsArray[Count].Value -= 1;
+      if( DigitsArray[Count].Value < 0 )
+        DigitsArray[Count].Value += (int)IntMath.GetPrimeAt( Count );
+
+      }
+    }
+
+
+  internal void SubtractUInt( uint ToSub )
+    {
+    for( int Count = 0; Count < DigitsArraySize; Count++ )
+      {
+      DigitsArray[Count].Value -= (int)(ToSub % (int)IntMath.GetPrimeAt( Count ));
+      if( DigitsArray[Count].Value < 0 )
+        DigitsArray[Count].Value += (int)IntMath.GetPrimeAt( Count );
+
+      }
+    }
 
 
   internal void Multiply( ChineseRemainder ToMul )
