@@ -3,9 +3,9 @@
 // http://eric7apps.blogspot.com/
 
 
-// These ideas mainly come from a set of books written by Donald Knuth
-// in the 1960s called "The Art of Computer Programming", especially
-// Volume 2 – Seminumerical Algorithms.
+// These ideas for the basic math operations mainly come from a set of
+// books written by Donald Knuth in the 1960s called "The Art of Computer
+// Programming", especially Volume 2 – Seminumerical Algorithms.
 // But it is also a whole lot like the ordinary arithmetic you'd do on
 // paper, and there are some comments in the code below about that.
 
@@ -75,12 +75,16 @@ namespace ExampleServer
   private Integer[] BaseArrayP;
   private Integer[] BaseArrayQ;
   private Integer[] GeneralBaseArray;
-  private Integer[] AccumulateArray;
+
+  // private Integer[] AccumulateArray;
   private Integer[] BaseWorkArray1;
   private uint[] DivisionArray;
   private uint[] PrimeArray;
   internal const int PrimeArrayLength = 1024 * 32;
   private string StatusString = "";
+  private bool Cancelled = false;
+
+
 
 
   internal IntegerMath()
@@ -137,6 +141,11 @@ namespace ExampleServer
     MakePrimeArray();
     }
 
+
+  internal void SetCancelled( bool SetTo )
+    {
+    Cancelled = SetTo;
+    }
 
 
   internal string GetStatusString()
@@ -239,6 +248,20 @@ namespace ExampleServer
 
     // No small primes divide it.
     return 0;
+    }
+
+
+
+  internal ulong GetSumOfPrimesUpToAndIncluding( int UpTo )
+    {
+    if( UpTo >= PrimeArrayLength )
+      throw( new Exception( "Can't go past the array for GetSumOfPrimesUpTo()." ));
+
+    ulong Sum = 0;
+    for( int Count = 0; Count < UpTo; Count++ )
+      Sum += PrimeArray[Count];
+
+    return Sum;
     }
 
 
@@ -496,7 +519,6 @@ namespace ExampleServer
 
 
 
-
   internal void MultiplyUInt( Integer Result, ulong ToMul )
     {
     try
@@ -660,7 +682,6 @@ namespace ExampleServer
 
 
 
-
   // See also: http://en.wikipedia.org/wiki/Karatsuba_algorithm
   internal void Multiply( Integer Result, Integer ToMul )
     {
@@ -805,7 +826,6 @@ namespace ExampleServer
       return false;
 
     }
-
 
 
 
@@ -1018,7 +1038,6 @@ namespace ExampleServer
     // All of the above was just to get the P1 part of it, so now add P0:
     return (Part1 + P0) % Divisor64;
     }
-
 
 
 
@@ -1312,7 +1331,6 @@ namespace ExampleServer
       default: return false;
       }
     }
-
 
 
 
@@ -1841,7 +1859,6 @@ namespace ExampleServer
 
 
 
-
   private void LongDivide3( Integer ToDivide,
                             Integer DivideBy,
                             Integer Quotient,
@@ -2309,7 +2326,7 @@ namespace ExampleServer
 
 
 
-  internal void ModularPower( Integer Result, Integer Exponent, Integer GeneralBase )
+  internal void ModularPower( Integer Result, Integer Exponent, Integer Modulus ) // , bool DoQuotientTest )
     {
     // The square and multiply method is in Wikipedia:
     // https://en.wikipedia.org/wiki/Exponentiation_by_squaring
@@ -2319,7 +2336,7 @@ namespace ExampleServer
     if( Result.IsZero())
       return; // With Result still zero.
 
-    if( Result.IsEqual( GeneralBase ))
+    if( Result.IsEqual( Modulus ))
       {
       // It is congruent to zero % ModN.
       Result.SetToZero();
@@ -2333,10 +2350,10 @@ namespace ExampleServer
       return;
       }
 
-    if( GeneralBase.ParamIsGreater( Result ))
+    if( Modulus.ParamIsGreater( Result ))
       {
       // throw( new Exception( "This is not supposed to be input for RSA plain text." ));
-      Divide( Result, GeneralBase, Quotient, Remainder );
+      Divide( Result, Modulus, Quotient, Remainder );
       Result.Copy( Remainder );
       }
 
@@ -2346,7 +2363,7 @@ namespace ExampleServer
       return;
       }
 
-    SetupGeneralBaseArray( GeneralBase );
+    SetupGeneralBaseArray( Modulus );
 
     XForModPower.Copy( Result );
     ExponentCopy.Copy( Exponent );
@@ -2357,7 +2374,7 @@ namespace ExampleServer
       if( (ExponentCopy.GetD( 0 ) & 1) == 1 ) // If the bottom bit is 1.
         {
         Multiply( Result, XForModPower );
-        AddByGeneralBaseArrays( TempForModPower, Result );
+        ModularReduction( TempForModPower, Result );
         Result.Copy( TempForModPower );
         }
 
@@ -2367,29 +2384,94 @@ namespace ExampleServer
 
       // Square it.
       Multiply( XForModPower, XForModPower );
-      AddByGeneralBaseArrays( TempForModPower, XForModPower );
+      ModularReduction( TempForModPower, XForModPower );
       XForModPower.Copy( TempForModPower );
       }
 
-    // When AddByGeneralBaseArrays() gets called it multiplies a number
+    // When ModularReduction() gets called it multiplies a base number
     // by a uint sized digit.  So that can make the result one digit bigger
     // than GeneralBase.  Then when they are added up you can get carry
     // bits that can make it a little bigger.
-    // If by chance you got a carry bit on _every_ addition that was done
-    // in AddByGeneralBaseArrays() then this number could increase in size
-    // by 1 bit for each addition that was done.  It would take 32 bits for
-    // HowBig to increase by 1.
-    int HowBig = Result.GetIndex() - GeneralBase.GetIndex();
-    if( HowBig > 2 )
-      throw( new Exception( "The difference in index size was more than 2. Diff: " + HowBig.ToString() ));
+    int HowBig = Result.GetIndex() - Modulus.GetIndex();
+    // if( HowBig > 1 )
+      // throw( new Exception( "This does happen. Diff: " + HowBig.ToString() ));
 
-    // So this Quotient has only one or two 32-bit digits in it.
-    Divide( Result, GeneralBase, Quotient, Remainder );
+    if( HowBig > 2 )
+      throw( new Exception( "The never happens. Diff: " + HowBig.ToString() ));
+
+    /*
+    if( DoQuotientTest )
+      {
+      // Assume I don't know what the quotient is but I want to find
+      // out what it is.  In other words I want to find the complete 
+      // output (before that Divide() happens at the end) of
+      // ModularPower() when I know the CipherText.
+
+      ulong MostQuotientCanPossiblyBe = (ulong)Modulus.GetIndex() * 2;
+      MostQuotientCanPossiblyBe *= 0xFFFFFFFFUL; // Times the most any one digit can be.
+      StatusString += "MostQuotientCanPossiblyBe: " + MostQuotientCanPossiblyBe.ToString( "N0" ) + "\r\n";
+
+      // The most the quotient could possibly ever be is proportional
+      // to the digit size.  Compare this to the size of the quotient in 
+      // CRTMath.ModularPower().  Also, if you look in the ECInteger.java
+      // file you'll see that it uses 24 bit digits.  Those numbers would
+      // have a smaller quotient here.  And using 16 bit digits would
+      // make this quotient even smaller.  But it requires more
+      // additions and multiplications to be done in ModularReduction().
+      // Using digits of size 0xFFFF means Modulus.GetIndex() is twice
+      // as big.  Four times GetIndex() times 0xFFFF is a much smaller
+      // quotient.
+
+      // Let's just say I got the public key modulus and exponent from the
+      // TLS ServerCertificate message (see my blog), and I got the
+      // CipherText from the TLS ClientKeyExchange message.
+
+      ECTime FindQuotientTime = new ECTime();
+      FindQuotientTime.SetToNow();
+      Integer ModulusMultiple = new Integer();
+      Integer CipherText = new Integer();
+      Integer ResultBeforeDivide = new Integer();
+
+      ResultBeforeDivide.Copy( Result );
+      Divide( Result, Modulus, Quotient, Remainder );
+
+      // So assume I have the CipherText value, but not the quotient.
+      CipherText.Copy( Remainder );
+
+      // It takes less than one second to find this quotient
+      // in CRTMath.ModularPower().  But by cryptographic standards
+      // for "brute force" this would not take long either.
+      for( ulong Count = 0; Count < MostQuotientCanPossiblyBe; Count++ )
+        {
+        if( Cancelled )
+          break;
+
+        ModulusMultiple.Copy( Modulus );
+        MultiplyULong( ModulusMultiple, Count );
+        ModulusMultiple.Add( CipherText );
+        if( Result.IsEqual( ModulusMultiple ))
+         {
+          StatusString += "\r\n\r\n\r\nFound the quotient matching this CipherText at: " + Count.ToString( "N0" ) + "\r\n";
+          StatusString += "It took " + FindQuotientTime.GetSecondsToNow().ToString( "N1" ) + " seconds to find it.\r\n\r\n\r\n";
+          break;
+          }
+        }
+      }
+    else
+      { */
+
+      // Get the Quotient and Remainder this way, since I 
+      // know the Result after the modular reductions, and
+      // the Modulus.
+      Divide( Result, Modulus, Quotient, Remainder );
+      
+      // }
+
     Result.Copy( Remainder );
     }
 
 
-
+  // To use when the base array is pre-set for PrimeP.
   internal void ModularPowerModPrimeP( Integer Result, Integer Exponent, Integer PrimeP )
     {
     if( Result.IsZero())
@@ -2467,6 +2549,7 @@ namespace ExampleServer
 
 
 
+  // To use when the base array is pre-set for PrimeQ.
   internal void ModularPowerModPrimeQ( Integer Result, Integer Exponent, Integer PrimeQ )
     {
     if( Result.IsZero())
@@ -2592,28 +2675,6 @@ namespace ExampleServer
       GcdX.Copy( GcdY );
       GcdY.Copy( Remainder );
       }
-    }
-
-
-
-  internal void TestMultiplicativeInverse( BackgroundWorker Worker )
-    {
-    Integer X = new Integer();
-    Integer Modulus = new Integer();
-    Integer MultInverse = new Integer();
-
-    // Some primes to test with:
-    // 384821, 384827, 384841, 384847, 384851, 384889, 384907, 384913, 384919, 
-    // 384941, 384961, 384973, 385001, 385013, 385027, 385039, 385057, 385069,
-    // 385939, 385943, 385967, 385991, 385997, 386017, 386039, 386041, 386047,
-    // 386051, 386083, 386093
-
-    // X.SetFromULong( 384821 );
-    // Modulus.SetFromULong( 386093 );
-    X.SetFromULong( 384847 );
-    Modulus.SetFromULong( 385991 );
-
-    MultiplicativeInverse( X, Modulus, MultInverse, Worker );
     }
 
 
@@ -2779,12 +2840,15 @@ namespace ExampleServer
     // Also see Rabin-Miller test.
     // Also see Solovay-Strassen test.
 
-    // Use bigger primes for Fermat test because mod 3, mod 5 etc are too likely
-    // to be congruent to 1.  In other words it's a lot more likely to appear
-    // to be a prime when it isn't.  This Fermat primality test is usually
-    // described as using random primes to test with, and you could do
-    // it that way too.
-    int StartAt = 20; // Or much bigger.
+    // Use bigger primes for Fermat test because the modulus can't
+    // be too small.  And also it's more likely to be congruent to 1
+    // with a very small modulus.  In other words it's a lot more likely
+    // to appear to be a prime when it isn't.  This Fermat primality test
+    // is usually described as using random primes to test with, and you
+    // could do it that way too.  Except that this Fermat test is being
+    // used to find random primes, so...
+    // IntegerMath.PrimeArrayLength = 1024 * 32;
+    int StartAt = 1024 * 16; // Or much bigger.
     for( int Count = StartAt; Count < (HowMany + StartAt); Count++ )
       {
       if( !IsFermatPrimeForOneValue( ToTest, PrimeArray[Count] ))
@@ -2924,6 +2988,9 @@ namespace ExampleServer
       {
       // The definition is that it's congruent to 1 mod the modulus,
       // so this has to be 1.
+
+      // I've only seen this happen once.  Were the primes P and Q not
+      // really primes?
       Worker.ReportProgress( 0, "This is a bug. Remainder has to be 1: " + ToString10( Remainder ));
       return false;
       }
@@ -2989,13 +3056,11 @@ namespace ExampleServer
     if( GeneralBaseArray == null )
       {
       GeneralBaseArray = new Integer[HowMany];
-      AccumulateArray = new Integer[HowMany];
       }
 
     if( GeneralBaseArray.Length < HowMany )
       {
       GeneralBaseArray = new Integer[HowMany];
-      AccumulateArray = new Integer[HowMany];
       }
 
     Integer Base = new Integer();
@@ -3010,9 +3075,6 @@ namespace ExampleServer
       {
       if( GeneralBaseArray[Count] == null )
         GeneralBaseArray[Count] = new Integer();
-
-      if( AccumulateArray[Count] == null )
-        AccumulateArray[Count] = new Integer();
 
       Divide( BaseValue, GeneralBase, Quotient, Remainder );
       GeneralBaseArray[Count].Copy( Remainder );
@@ -3052,6 +3114,7 @@ namespace ExampleServer
 
 
 
+
   private int AddByBaseArraysQ( Integer Result, Integer ToAdd )
     {
     if( BaseArrayQ == null )
@@ -3070,24 +3133,23 @@ namespace ExampleServer
 
 
 
-  // This is the Modular Reduction algorithm.  It reduces
-  // ToAdd to Result.
-  internal int AddByGeneralBaseArrays( Integer Result, Integer ToAdd )
+  internal int ModularReduction( Integer Result, Integer ToReduce )
     {
     try
     {
+    // This method used to be called AddByGeneralBaseArrays().
     if( GeneralBaseArray == null )
       throw( new Exception( "SetupGeneralBaseArray() should have already been called." ));
 
     Result.SetToZero();
 
-    // The Index size of ToAdd is usually double the length of the modulus
+    // The Index size of ToReduce is usually double the length of the modulus
     // this is reducing it to.  Like if you multiply P and Q to get N, then
-    // the ToAdd that comes in here is about the size of N and the GeneralBase
+    // the ToReduce that comes in here is about the size of N and the GeneralBase
     // is about the size of P.  So the amount of work done here is proportional
     // to P times N.
 
-    int HowManyToAdd = ToAdd.GetIndex() + 1;
+    int HowManyToAdd = ToReduce.GetIndex() + 1;
     int BiggestIndex = 0;
     for( int Count = 0; Count < HowManyToAdd; Count++ )
       {
@@ -3098,7 +3160,7 @@ namespace ExampleServer
       // calls done on each digit of the quotient in LongDivide3().
 
       // Accumulate is set to a new value here.
-      int CheckIndex = MultiplyUIntFromCopy( AccumulateBase, GeneralBaseArray[Count], ToAdd.GetD( Count ));
+      int CheckIndex = MultiplyUIntFromCopy( AccumulateBase, GeneralBaseArray[Count], ToReduce.GetD( Count ));
 
       if( CheckIndex > BiggestIndex )
         BiggestIndex = CheckIndex;
@@ -3106,52 +3168,13 @@ namespace ExampleServer
       Result.Add( AccumulateBase );
       }
 
-    // Add all of them up at once.  This could cause an overflow, so 
-    // Result.Add is done above.
-    // AddUpAccumulateArray( Result, HowManyToAdd, BiggestIndex );
-
     return Result.GetIndex();
     }
     catch( Exception Except )
       {
-      throw( new Exception( "Exception in AddByGeneralBaseArrays(): " + Except.Message ));
+      throw( new Exception( "Exception in ModularReduction(): " + Except.Message ));
       }
     }
-
-
-  /* This might overflow.
-  private void AddUpAccumulateArray( Integer Result, int HowManyToAdd, int BiggestIndex )
-    {
-    try
-    {
-    for( int Count = 0; Count <= (BiggestIndex + 1); Count++ )
-      Result.SetD( Count, 0 );
-
-    Result.SetIndex( BiggestIndex );
-
-    for( int Count = 0; Count < HowManyToAdd; Count++ )
-      {
-      int HowManyDigits = AccumulateArray[Count].GetIndex() + 1;
-      for( int CountDigits = 0; CountDigits < HowManyDigits; CountDigits++ )
-        {
-        ulong Sum = AccumulateArray[Count].GetD( CountDigits ) + Result.GetD( CountDigits );
-        Result.SetD( CountDigits, Sum );
-        }
-      }
-
-    // This is like ax + by + cz + ... = Result.
-    // You know what a, b, c... are.
-    // But you don't know what x, y, and z are.
-    // So how do you reverse this and get x, y and z?
-
-    Result.OrganizeDigits();
-    }
-    catch( Exception Except )
-      {
-      throw( new Exception( "Exception in AddUpAccumulateArray(): " + Except.Message ));
-      }
-    }
-    */
 
 
 
@@ -3223,7 +3246,7 @@ namespace ExampleServer
     // If you pick a number at random, then statistically, half of all
     // numbers are odd, a third of all numbers are divisible by 3, a 
     // fifth of all numbers are divisible by 5, a seventh of all numbers
-    // are divisible by 7, and so on.  So you can reduce the size of the
+    // are divisible by 7, and so on.  So you can reduce the amount of
     // numbers that you test with by getting rid of those numbers that
     // are divisible by small primes.
 
@@ -3278,7 +3301,7 @@ namespace ExampleServer
     uint Base19 = Base * 19;
     uint Base23 = Base19 * 23;
 
-    // The first few numbers like this:
+    // The first few base numbers like this:
     // 2             2
     // 3             6
     // 5            30
@@ -3289,6 +3312,7 @@ namespace ExampleServer
     // 19    9,699,690
     // 23  223,092,870
 
+    // These loops count up to 223,092,870 - 1.
     for( uint Count23 = 0; Count23 < 23; Count23++ )
       {
       uint Base23Part = (Base19 * Count23);
