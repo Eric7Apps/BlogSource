@@ -441,33 +441,6 @@ namespace ExampleServer
 
 
 
-  internal void OrganizeDigits()
-    {
-    // Tell the compiler these aren't going to change for the for-loop.
-    int LocalIndex = Index;
-
-    // After they've been added, reorganize it.
-    ulong Carry = D[0] >> 32;
-    D[0] = D[0] & 0xFFFFFFFF;
-    for( int Count = 1; Count <= LocalIndex; Count++ )
-      {
-      ulong Total = Carry + D[Count];
-      D[Count] = Total & 0xFFFFFFFF;
-      Carry = Total >> 32;
-      }
-
-    if( Carry != 0 )
-      {
-      Index++;
-      if( Index >= DigitArraySize )
-        throw( new Exception( "Integer.Add() overflow." ));
-
-      D[Index] = Carry;
-      }
-    }
-
-
-
   // This is an optimization for small squares.
   internal void Square0()
     {
@@ -726,8 +699,6 @@ namespace ExampleServer
     // if( Carry != 0 )
       // throw( new Exception( "ShiftRight() Carry not zero." ));
     }
-
-
 
 
 
@@ -1080,31 +1051,6 @@ namespace ExampleServer
     */
     }
 
-
-
-
-  internal void ShiftForPreCalc( int HowMany )
-    {
-    if( Index < HowMany )
-      throw( new Exception( "Exception in ShiftForPreCalc(). HowMany > Index." ));
-
-    try
-    {
-    for( int Count = 0; Count < Index; Count++ )
-      {
-      if( (Count + HowMany) > Index )
-        break;
-
-      D[Count] = D[Count + HowMany];
-      }
-
-    Index -= HowMany;
-    }
-    catch( Exception Except )
-      {
-      throw( new Exception( "Exception in ShiftForPreCalc(). " + Except.Message ));
-      }
-    }
 
 
 
