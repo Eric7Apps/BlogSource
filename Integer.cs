@@ -732,13 +732,14 @@ namespace ExampleServer
     {
     IsNegative = false;
     if( SetToIndex > (DigitArraySize - 3))
-      SetToIndex = DigitArraySize - 3;
+      throw( new Exception( "MakeRandomOdd Index is too high." ));
+
+    if( (RandBytes.Length & 3) != 0 )
+      throw( new Exception( "MakeRandomOdd RandBytes.Length is not divisible by 4." ));
 
     int HowManyBytes = (SetToIndex * 4) + 4;
     if( RandBytes.Length < HowManyBytes )
-      {
-      return false;
-      }
+      throw( new Exception( "MakeRandomOdd RandBytes.Length < HowManyBytes." ));
 
     Index = SetToIndex;
 
@@ -764,6 +765,8 @@ namespace ExampleServer
       {
       if( D[Count] != 0 )
         break;
+      else
+        throw( new Exception( "How often does this happen with the top being zero?" ));
 
       Index--;
       if( Index == 0 )
