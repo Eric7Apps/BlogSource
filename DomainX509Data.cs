@@ -29,7 +29,6 @@ namespace ExampleServer
     {
     MForm = UseForm;
     FileName = FileToUseName;
-
     DomainX509RecArray = new DomainX509Record[8]; // It will resize it.
     }
 
@@ -62,6 +61,35 @@ namespace ExampleServer
 
 
 
+  internal bool UpdateDomainX509Rec( DomainX509Record Rec )
+    {
+    if( Rec == null )
+      return false;
+
+     if( Rec.DomainName.Length < 2 )
+       {
+       MForm.ShowStatus( "Trying to update a DomainX509 record with no domain name." );
+       return false;
+       }
+
+    // ToDo: Use a dictionary to index this and find it quickly.
+    for( int Count = 0; Count < DomainX509RecArrayLast; Count++ )
+      {
+      if( Rec.DomainName == DomainX509RecArray[Count].DomainName )
+        {
+        Rec.SetModifyTimeToNow();
+        DomainX509RecArray[Count].Copy( Rec );
+        return true;
+        }
+      }
+
+    // Didn't find a match so add it.
+    return AddDomainX509Rec( Rec );
+    }
+
+
+
+
   internal string GetRandomDomainName()
     {
     try
@@ -84,8 +112,9 @@ namespace ExampleServer
         // continue;
 
       // return "127.0.0.1"; // For testing with local loopback.
-      // return "promocodeclub.com";
+      // return "promocodeclub.com"; // Good for testing X.509.
       // return "durangoherald.com"; They don't have HTTPS on this domain.
+      // return "schneier.com"; //  Bruce Schneier, the cryptographer.
       return Rec.DomainName;
       }
 
@@ -200,6 +229,67 @@ namespace ExampleServer
       return false;
       }
     }
+
+
+
+  internal bool ReadFromTextFile()
+    {
+    try
+    {
+    string Line;
+    using( StreamReader SReader = new StreamReader( FileName  )) 
+      {
+      int HowMany = 0;
+      for( int Count = 0; Count < 1000000; Count++ )
+        {
+        /*
+        if( (Count & 0xFF) == 1 )
+          {
+          MForm.ShowStatus( "Count is: " + Count.ToString( "N0" ));
+          if( !MForm.CheckEvents())
+            return false;
+
+          }
+          */
+
+        if( SReader.Peek() < 0 ) 
+          break;
+
+        Line = SReader.ReadLine();
+        if( Line == null )
+          break;
+
+        if( !Line.Contains( "\t" ))
+          continue;
+
+        DomainX509Record Rec = new DomainX509Record();
+        if( !Rec.StringToObject( Line ))
+          {
+          // MForm.ShowStatus( "Got false for: " + Line );
+          continue;
+          }
+
+        if( !AddDomainX509Rec( Rec ))
+          break; // Out of RAM.
+
+        HowMany++;
+        }
+
+      MForm.ShowStatus( " " );
+      MForm.ShowStatus( "Records: " + HowMany.ToString( "N0" ));
+      }
+
+    return true;
+
+    }
+    catch( Exception Except )
+      {
+      MForm.ShowStatus( "Could not read the X.509 data file." );
+      MForm.ShowStatus( Except.Message );
+      return false;
+      }
+    }
+
 
 
   }
