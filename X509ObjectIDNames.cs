@@ -2,6 +2,10 @@
 // Notes on this source code are at:
 // http://eric7apps.blogspot.com/
 
+
+// Look them up on:  http://www.oid-info.com/
+
+
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -83,11 +87,21 @@ namespace ExampleServer
     NamesDictionary["1.2.840.113549.1.1.2"] = "RSA_MD2";
     NamesDictionary["1.2.840.113549.1.1.3"] = "RSA_MD4";
     NamesDictionary["1.2.840.113549.1.1.4"] = "RSA_MD5";
+    // PKCS 1:
+
     NamesDictionary["1.2.840.113549.1.1.1"] = "RSA_RSA RSA Encryption. RFC 2313, 2437, 3370.";
     NamesDictionary["1.2.840.113549.1.1.2"] = "RSA_MD2RSA";
     NamesDictionary["1.2.840.113549.1.1.3"] = "RSA_MD4RSA";
     NamesDictionary["1.2.840.113549.1.1.4"] = "RSA_MD5RSA";
-    NamesDictionary["1.2.840.113549.1.1.5"] = "RSA_SHA1RSA RFC 2437, 3370";
+    NamesDictionary["1.2.840.113549.1.1.5"] = "SHA1 with RSA. RSA_SHA1RSA RFC 2437, 3370";
+
+
+    NamesDictionary["1.2.840.113549.1.1.6"] = "rsaOAEPEncryptionSET";
+    NamesDictionary["1.2.840.113549.1.1.7"] = "id-RSAES-OAEP";
+
+    NamesDictionary["1.2.840.113549.1.1.11"] = "SHA256 with RSA";
+    NamesDictionary["1.2.840.113549.1.1.12"] = "SHA384 with RSA";
+
     NamesDictionary["1.2.840.113549.1.3.1"] = "RSA_DH";
     NamesDictionary["1.2.840.113549.1.7.1"] = "RSA_data";
     NamesDictionary["1.2.840.113549.1.7.2"] = "RSA_signedData";
@@ -116,7 +130,34 @@ namespace ExampleServer
     NamesDictionary["1.2.840.10040"] = "X957";
     NamesDictionary["1.2.840.10040.4.1"] = "X957_DSA";
     NamesDictionary["1.2.840.10040.4.3"] = "DATA STRUCTURE";
+
+    // https://msdn.microsoft.com/en-us/library/windows/desktop/aa379367%28v=vs.85%29.aspx
+
+    NamesDictionary["1.3.6.1.5.5.7.1.1"] = "Authority Info Access \"The authority information access extension identifies how to access CA information and services. The extension value contains a sequence of URIs.\"";
+
     NamesDictionary["2.5"] = "DS";
+
+    // "Enables identification of the CA public key that corresponds to the CA
+    // private key that signed an issued certificate. It is used by certificate
+    // path building software on a Windows server to find the CA certificate.
+    // When a CA issues a certificate, the extension value is set equal to the
+    // SubjectKeyIdentifier extension in the CA signing certificate. The value
+    // is typically a SHA-1 hash of the public key."
+    NamesDictionary["2.5.29.1"] = "Authority key identifier";
+
+    NamesDictionary["2.5.29.10"] = "Basic Constraints";
+    NamesDictionary["2.5.29.14"] = "Subject key identifier";
+    NamesDictionary["2.5.29.15"] = "Key Usage";
+    
+    NamesDictionary["2.5.29.17"] = "Subject Alt Name";
+
+    NamesDictionary["2.5.29.19"] = "Basic Constraints";
+    NamesDictionary["2.5.29.25"] = "CRL Distribution Points";
+    NamesDictionary["2.5.29.31"] = "CRL Distribution Points";
+    NamesDictionary["2.5.29.32"] = "Certificate Policies";
+    NamesDictionary["2.5.29.35"] = "Authority key identifier";
+    NamesDictionary["2.5.29.37"] = "Certificate Extension key usage";
+
     NamesDictionary["2.5.4.1"] = "Aliased Entry Name";
     NamesDictionary["2.5.4.2"] = "Knowledge Information";
     NamesDictionary["2.5.4.3"] = "Common Name";
