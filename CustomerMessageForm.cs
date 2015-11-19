@@ -26,6 +26,7 @@ namespace ExampleServer
   public partial class CustomerMessageForm : Form
   {
   private MainForm MForm;
+  private DomainX509Record X509Record;
 
 
   private CustomerMessageForm()
@@ -107,6 +108,9 @@ namespace ExampleServer
     BackWorkerInfo WInfo = new BackWorkerInfo();
     WInfo.ServerIPOrDomainName = MForm.X509Data.GetRandomDomainName();
 
+    if( DialogResult.Yes != MessageBox.Show( "Send for this?\r\n" + WInfo.ServerIPOrDomainName, MainForm.MessageBoxTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Question ))
+      return;
+
     try
     {
     if( !GetX509BackgroundWorker.IsBusy )
@@ -157,7 +161,7 @@ namespace ExampleServer
     Worker.ReportProgress( 0, "Before SendMessage.ExchangeMessages()." );
     if( SendMessage.ExchangeMessages())
       {
-      // Do something.
+      X509Record = SendMessage.GetX509Record();
       }
     }
     finally
@@ -210,6 +214,15 @@ namespace ExampleServer
       }
 
     ShowStatus( "Background worker is completed." );
+    if( X509Record != null )
+      {
+      ShowStatus( "Updating X509Record for: " + X509Record.DomainName );
+      MForm.X509Data.UpdateDomainX509Rec( X509Record );
+      }
+    else
+      {
+      ShowStatus( "X509Record is null at the end." );
+      }
 
     // e.Error
     // e.Result
