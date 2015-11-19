@@ -32,6 +32,8 @@
 // "Procedures for identification and encoding of public key materials
 // and digital signatures are defined in RFC3279, RFC4055, and
 // RFC4491."
+// https://tools.ietf.org/html/rfc3279
+
 
 
 using System;
@@ -42,27 +44,54 @@ using System.Threading.Tasks;
 
 namespace ExampleServer
 {
+  internal struct BitStreamRec
+    {
+    internal byte[] BitStream;
+    internal string OIDString;
+    }
+
+
+
   class DomainX509Record
   {
   // internal int Rank = 0; // Where it is ranked in popularity.  Google is 1.
   internal string DomainName = "";
+  private string PublicKeyModulus = "0";
+  private string PublicKeyExponent = "0";
   private ECTime ModifyTime;
      // This is the most recent certificate list
      // from the Server Certificate Message.
   private byte[] CertificateList;
   private string StatusString = "";
-  private X509ObjectIDNames ObjectIDNames;
+  private X509ObjectIDNames ObjectIDNames; // This only gets created if it's needed to parse certificates.
   private int MostRecentTagValue = 0;
   private Integer MostRecentIntegerValue;
-  // private byte[] MostRecentBitStringValue;
   private string MostRecentObjectIDString = "";
   private IntegerMath IntMath;
+  private BitStreamRec[] BitStreamRecArray;
+  private int BitStreamRecArrayLast = 0;
+
+
+
+  private void DoGeneralConstructorThings()
+    {
+    ModifyTime = new ECTime();
+    MostRecentIntegerValue = new Integer();
+    BitStreamRecArray = new BitStreamRec[8];
+    }
 
 
   internal DomainX509Record()
     {
-    ModifyTime = new ECTime();
-    MostRecentIntegerValue = new Integer();
+    DoGeneralConstructorThings();
+    }
+
+
+
+  internal DomainX509Record( string UseDomainName )
+    {
+    DomainName = UseDomainName;
+    DoGeneralConstructorThings();
     }
 
 
@@ -71,6 +100,11 @@ namespace ExampleServer
     return ModifyTime.GetIndex();
     }
 
+
+  internal void SetModifyTimeToNow()
+    {
+    ModifyTime.SetToNow();
+    }
 
 
   internal string GetStatusString()
@@ -108,18 +142,68 @@ namespace ExampleServer
     }
 
 
+
+  internal void Copy( DomainX509Record ToCopy )
+    {
+    if( ToCopy.DomainName.Length > 2 )
+      DomainName = ToCopy.DomainName;
+      
+    ModifyTime.Copy( ToCopy.ModifyTime );
+    PublicKeyExponent = ToCopy.PublicKeyExponent;
+    PublicKeyModulus = ToCopy.PublicKeyModulus;
+    }
+
+
   internal string ObjectToString()
     {
+    if( DomainName.Length < 2 )
+      return "";
+
+    if( PublicKeyModulus.Length < 1 )
+      PublicKeyModulus = "0";
+
+    if( PublicKeyExponent.Length < 1 )
+      PublicKeyExponent = "0";
+
     string Result = DomainName + "\t" +
-      ModifyTime.GetIndex().ToString() + "\t";
+      ModifyTime.GetIndex().ToString() + "\t" +
+      PublicKeyExponent + "\t" +
+      PublicKeyModulus;
       
-    if( CertificateList == null )
-      Result += " \t";
-    else
-      Result += Utility.BytesToLetterString( CertificateList );
+    // if( CertificateList == null )
+      // Result += " \t";
+    // else
+      // Result += Utility.BytesToLetterString( CertificateList );
 
     return Result;
     }
+
+
+
+  internal bool StringToObject( string InString )
+    {
+    try
+    {
+    string[] SplitS = InString.Split( new Char[] { '\t' } );
+    if( SplitS.Length < 4 )
+      return false;
+
+    DomainName = Utility.CleanAsciiString( SplitS[0], 100 ).Trim();
+    ModifyTime.SetFromIndex( (ulong)Int64.Parse( SplitS[1] ));
+    PublicKeyExponent = Utility.CleanAsciiString( SplitS[2], 100000 ).Trim();
+    PublicKeyModulus = Utility.CleanAsciiString( SplitS[3], 100000 ).Trim();
+
+    // CertificateList 
+
+    return true;
+    }
+    catch( Exception Except )
+      {
+      // DomainName = "";
+      return false;
+      }
+    }
+
 
 
   internal void ParseAndAddOneCertificateList( byte[] ToAdd )
@@ -199,6 +283,8 @@ namespace ExampleServer
   // A certificate from a .cer file could be parsed with this too.
   internal bool ParseOneCertificate( byte[] OneCertificate )
     {
+    BitStreamRecArrayLast = 0;
+
     if( OneCertificate == null )
       return false;
 
@@ -306,19 +392,19 @@ namespace ExampleServer
       return false;
       }
 
+    // StringValue is: 1.2.840.113549.1.1.5
+    // OID Name is: RSA_SHA1RSA RFC 2437, 3370
     // When I sent the ClientHello message I only specified that this client
     // can understand RSA with AES encryption, so the server has to pick from
     // only the ones I list that this client can support.
-    // So it's returning an RSA type of certificate here.
+    // So it's returning an RSA type here.
     // If your client was supporting more encryption protocols then this
     // part would be more complicated and the server would return a wider
     // variety of things here, including possibly some parameters for
     // the next tag that follows this one.
-    // StringValue is: 1.2.840.113549.1.1.5
-    // OID Name is: RSA_SHA1RSA RFC 2437, 3370
 
     // This null is for the parameters associated with the signature algorithm.
-    // There are none here, so it's null.
+    // There are none here for RSA, so it's null.
     Index = ProcessOneTag( Index, OneCertificate );
     if( MostRecentTagValue != 5 ) // Null tag
       {
@@ -391,17 +477,19 @@ namespace ExampleServer
         {
         // If it has gotten to the SubjectPublicKeyInfo part, then break.
         //  OID Name is: RSA_RSA RSA Encryption. RFC 2313, 2437, 3370.
+        // It's looking for the RSA
         if( MostRecentObjectIDString == "1.2.840.113549.1.1.1" )
           break;
 
         }
       }
 
-    //    subjectPublicKeyInfo SubjectPublicKeyInfo,
-    //  OID Name is: RSA_RSA RSA Encryption. RFC 2313, 2437, 3370.
+
+    // subjectPublicKeyInfo SubjectPublicKeyInfo,
+    // OID Name is: RSA_RSA RSA Encryption. RFC 2313, 2437, 3370.
     // MostRecentObjectIDString == "1.2.840.113549.1.1.1" 
 
-    // This null is for the parameters associated with the signature algorithm.
+    // This null is for the parameters associated with the RSA public key.
     // There are none here, so it's null.
     Index = ProcessOneTag( Index, OneCertificate );
     if( MostRecentTagValue != 5 ) // Null tag
@@ -418,25 +506,181 @@ namespace ExampleServer
       return false;
       }
 
+
     // Following this is UniqueIdentifier if it's there.  (Obsolete?)
 
     // Following this is the extension parts.
 
+    // Get the rest of the parts of the certificate.
+    // while( don't go forever )
+    for( int Count = 0; Count < 1000; Count++ )
+      {
+      Index = ProcessOneTag( Index, OneCertificate );
+      if( Index < 1 )
+        break; // The end of the certificate.
+
+      }
+
     StatusString += "Check to see where the end of the certificate is.\r\n";
-    StatusString += "Index: " + Index.ToString() + "\r\n";
+    // StatusString += "Index: " + Index.ToString() + "\r\n";
+
+    ProcessBitStreamRecs();
+
     return true;
     }
 
 
 
-  private int ProcessOneTag( int Index, byte[] OneCertificate )
+  private void ShowTagType( int TagVal )
+    {
+    switch( TagVal )
+      {
+      case 0:
+        StatusString += "Context specific tag.\r\n";
+        break;
+
+      case 1:
+        StatusString += "Tag is Boolean.\r\n";
+        break;
+
+      case 2:
+        StatusString += "Tag is Integer.\r\n";
+        break;
+
+      case 3:
+        StatusString += "Tag is Bit String.\r\n";
+        break;
+
+      case 4:
+        StatusString += "Tag is Octet String.\r\n";
+        break;
+
+      case 5:
+        StatusString += "Tag is Null.\r\n";
+        break;
+
+      case 6:
+        StatusString += "Tag is Object Indentifier.\r\n";
+        break;
+
+      case 7:
+        StatusString += "Tag is Object Descriptor.\r\n";
+        break;
+
+      case 8:
+        StatusString += "Tag is External.\r\n";
+        break;
+
+      case 9:
+        StatusString += "Tag is Real/Float.\r\n";
+        break;
+
+      case 10:
+        StatusString += "Tag is Enumerated.\r\n";
+        break;
+
+      case 11:
+        StatusString += "Tag is Embedded PDV.\r\n";
+        break;
+
+      case 12:
+        StatusString += "Tag is UTF8 String.\r\n";
+        break;
+
+      case 13:
+        StatusString += "Tag is Relative OID.\r\n";
+        break;
+
+      case 14:
+        StatusString += "Tag is Reserved.\r\n";
+        break;
+
+      case 15:
+        StatusString += "Tag is Reserved.\r\n";
+        break;
+
+      case 16:
+        StatusString += "Tag is Sequence.\r\n";
+        break;
+
+      case 17:
+        StatusString += "Tag is Set.\r\n";
+        break;
+
+      case 18:
+        StatusString += "Tag is Numeric String.\r\n";
+        break;
+
+      case 19:
+        StatusString += "Tag is Printable String.\r\n";
+        break;
+
+      case 20:
+        StatusString += "Tag is T61 String.\r\n";
+        break;
+
+      case 21:
+        StatusString += "Tag is Videotex String.\r\n";
+        break;
+
+      case 22:
+        StatusString += "Tag is IA5 String.\r\n";
+        break;
+
+      case 23:
+        StatusString += "Tag is UTC Time.\r\n";
+        break;
+
+      case 24:
+        StatusString += "Tag is Generalized Time.\r\n";
+        break;
+
+      case 25:
+        StatusString += "Tag is Graphic String.\r\n";
+        break;
+
+      case 26:
+        StatusString += "Tag is Visible String.\r\n";
+        break;
+
+      case 27:
+        StatusString += "Tag is General String.\r\n";
+        break;
+
+      case 28:
+        StatusString += "Tag is Universal String.\r\n";
+        break;
+
+      case 29:
+        StatusString += "Tag is Character String.\r\n";
+        break;
+
+      case 30:
+        StatusString += "Tag is BMP String.\r\n";
+        break;
+
+      case 31:
+        StatusString += "Tag is in Long Form.\r\n";
+        break;
+
+      default:
+        StatusString += "Unknown TagVal is: " + TagVal.ToString() + "\r\n";
+        break;
+
+      }
+    }
+
+
+
+
+  private int ProcessOneTag( int Index, byte[] TagsBuffer )
     {
     try
     {
     if( IntMath == null )
       IntMath = new IntegerMath();
 
-    if( OneCertificate == null )
+    if( TagsBuffer == null )
       return -1;
 
     if( ObjectIDNames == null )
@@ -448,7 +692,7 @@ namespace ExampleServer
       return -1;
       }
 
-    if( Index >= OneCertificate.Length )
+    if( Index >= TagsBuffer.Length )
       {
       StatusString += "It's past the end of the buffer.\r\n";
       return -1;
@@ -456,7 +700,7 @@ namespace ExampleServer
 
     StatusString += "Index: " + Index.ToString() + "\r\n";
 
-    int Tag = OneCertificate[Index];
+    int Tag = TagsBuffer[Index];
     Index++;
 
     int ClassBits = Tag & 0xC0;
@@ -470,18 +714,17 @@ namespace ExampleServer
       StatusString += "Tag is a Constructed type.\r\n";
 
     int TagVal = Tag & 0x1F; // Bottom 5 bits.
+    ShowTagType( TagVal );
+    MostRecentTagValue = TagVal;
 
-    int Length = OneCertificate[Index];
+    int Length = TagsBuffer[Index];
     Index++;
     if( (Length & 0x80) != 0 )
       {
       // Then it's in the long form.
       int HowManyBytes = Length & 0x7F;
       if( HowManyBytes > 4 )
-        {
-        StatusString += "This can't be right for HowManyBytes: " + HowManyBytes.ToString() + "\r\n";
-        return -1;
-        }
+        throw( new Exception( "This can't be right for HowManyBytes: " + HowManyBytes.ToString() ));
 
       StatusString += "Long form HowManyBytes: " + HowManyBytes.ToString() + "\r\n";
 
@@ -489,7 +732,7 @@ namespace ExampleServer
       for( int Count = 0; Count < HowManyBytes; Count++ )
         {
         Length <<= 8;
-        Length |= OneCertificate[Index];
+        Length |= TagsBuffer[Index];
         Index++;
         }
       }
@@ -499,153 +742,15 @@ namespace ExampleServer
       }
 
     StatusString += "Length is: " + Length.ToString() + "\r\n";
-    if( Length > OneCertificate.Length )
+    if( Length > TagsBuffer.Length )
       {
       StatusString += "The Length is not a reasonable number.\r\n";
       return -1;
       }
 
-    MostRecentTagValue = TagVal;
-    switch( TagVal )
-        {
-        case 0:
-          StatusString += "Apparently this is for a context specific tag.\r\n";
-          break;
-
-        case 1:
-          StatusString += "Tag is Boolean.\r\n";
-          break;
-
-        case 2:
-          StatusString += "Tag is Integer.\r\n";
-          break;
-
-        case 3:
-          StatusString += "Tag is Bit String.\r\n";
-          break;
-
-        case 4:
-          StatusString += "Tag is Octet String.\r\n";
-          break;
-
-        case 5:
-          StatusString += "Tag is Null.\r\n";
-          break;
-
-        case 6:
-          StatusString += "Tag is Object Indentifier.\r\n";
-          break;
-
-        case 7:
-          StatusString += "Tag is Object Descriptor.\r\n";
-          break;
-
-        case 8:
-          StatusString += "Tag is External.\r\n";
-          break;
-
-        case 9:
-          StatusString += "Tag is Real/Float.\r\n";
-          break;
-
-        case 10:
-          StatusString += "Tag is Enumerated.\r\n";
-          break;
-
-        case 11:
-          StatusString += "Tag is Embedded PDV.\r\n";
-          break;
-
-        case 12:
-          StatusString += "Tag is UTF8 String.\r\n";
-          break;
-
-        case 13:
-          StatusString += "Tag is Relative OID.\r\n";
-          break;
-
-        case 14:
-          StatusString += "Tag is Reserved.\r\n";
-          break;
-
-        case 15:
-          StatusString += "Tag is Reserved.\r\n";
-          break;
-
-        case 16:
-          StatusString += "Tag is Sequence.\r\n";
-          break;
-
-        case 17:
-          StatusString += "Tag is Set.\r\n";
-          break;
-
-        case 18:
-          StatusString += "Tag is Numeric String.\r\n";
-          break;
-
-        case 19:
-          StatusString += "Tag is Printable String.\r\n";
-          break;
-
-        case 20:
-          StatusString += "Tag is T61 String.\r\n";
-          break;
-
-        case 21:
-          StatusString += "Tag is Videotex String.\r\n";
-          break;
-
-        case 22:
-          StatusString += "Tag is IA5 String.\r\n";
-          break;
-
-        case 23:
-          StatusString += "Tag is UTC Time.\r\n";
-          break;
-
-        case 24:
-          StatusString += "Tag is Generalized Time.\r\n";
-          break;
-
-        case 25:
-          StatusString += "Tag is Graphic String.\r\n";
-          break;
-
-        case 26:
-          StatusString += "Tag is Visible String.\r\n";
-          break;
-
-        case 27:
-          StatusString += "Tag is General String.\r\n";
-          break;
-
-        case 28:
-          StatusString += "Tag is Universal String.\r\n";
-          break;
-
-        case 29:
-          StatusString += "Tag is Character String.\r\n";
-          break;
-
-        case 30:
-          StatusString += "Tag is BMP String.\r\n";
-          break;
-
-        case 31:
-          StatusString += "Tag is in Long Form.\r\n";
-          break;
-
-        default:
-          StatusString += "This is a bug for TagVal.\r\n";
-          break;
-
-        }
-
-    if( // (TagVal == 0) || // That content specific tag.
+    if( // (TagVal == 0) || // That context specific tag.
         (TagVal == 1) || // Boolean
-        (TagVal == 3) || // Bit String
-        (TagVal == 4) || // Octet String
+        // (TagVal == 4) || // Octet String
         (TagVal == 5) || // Null (Should have a length of zero.)
         (TagVal == 7) || // Object Descriptor
         // (TagVal == 8) || // External
@@ -673,7 +778,7 @@ namespace ExampleServer
       {
       for( int Count = 0; Count < Length; Count++ )
         {
-        int ContentByte = OneCertificate[Index];
+        int ContentByte = TagsBuffer[Index];
         Index++;
         StatusString += "  Byte: 0x" + ContentByte.ToString( "X2" ) + "\r\n";
         }
@@ -688,7 +793,7 @@ namespace ExampleServer
       {
       for( int Count = 0; Count < Length; Count++ )
         {
-        BytesToSet[Count] = OneCertificate[Index];
+        BytesToSet[Count] = TagsBuffer[Index];
         Index++;
         }
 
@@ -696,7 +801,7 @@ namespace ExampleServer
       catch( Exception Except )
         {
         // Probably over-ran the buffer.
-        StatusString += "Exception at: BytesToSet[Count] = OneCertificate[Index].\r\nIn DomainX509Record.ProcessOneTag().\r\n";
+        StatusString += "Exception at: BytesToSet[Count] = TagsBuffer[Index].\r\nIn DomainX509Record.ProcessOneTag().\r\n";
         StatusString += Except.Message + "\r\n";
         return -1;
         }
@@ -704,7 +809,7 @@ namespace ExampleServer
       try
       {
       MostRecentIntegerValue.SetFromBigEndianByteArray( BytesToSet );
-      // StatusString += "MostRecentIntegerValue: " + IntMath.ToString10( MostRecentIntegerValue ) + "\r\n";
+      StatusString += "MostRecentIntegerValue: " + IntMath.ToString10( MostRecentIntegerValue ) + "\r\n";
       }
       catch( Exception Except )
         {
@@ -715,13 +820,73 @@ namespace ExampleServer
         }
       }
 
-    // The only types of strings allowed in the RFC are PrintableString and
+    if( TagVal == 3 ) // bit String
+      {
+      // This length was already checked above to see if it's a reasonable
+      // number.
+      byte[] BytesToSet = new byte[Length];
+      try
+      {
+      for( int Count = 0; Count < Length; Count++ )
+        {
+        BytesToSet[Count] = TagsBuffer[Index];
+        Index++;
+        }
+
+      }
+      catch( Exception Except )
+        {
+        // Probably over-ran the buffer.
+        StatusString += "Exception at: BytesToSet[Count] = TagsBuffer[Index].\r\nIn DomainX509Record.ProcessOneTag().\r\n";
+        StatusString += Except.Message + "\r\n";
+        return -1;
+        }
+
+      try
+      {
+      BitStreamRec Rec = new BitStreamRec();
+      Rec.BitStream = BytesToSet;
+      Rec.OIDString = MostRecentObjectIDString;
+      AddBitStreamRec( Rec );
+      }
+      catch( Exception Except )
+        {
+        // Probably over-ran the buffer.
+        StatusString += "Exception at: AddBitStreamRec().\r\nIn DomainX509Record.ProcessOneTag().\r\n";
+        StatusString += Except.Message + "\r\n";
+        return -1;
+        }
+      }
+
+    // Just a rough draft, to see what's in them.
+    if( TagVal == 4 ) // Octet String
+      {
+      for( int Count = 0; Count < Length; Count++ )
+        {
+        char ContentChar = (char)TagsBuffer[Index];
+        Index++;
+
+        // Make sure it has valid ASCII characters.
+        if( ContentChar > 127 )
+          continue;
+
+        if( ContentChar < 32 ) // Space character.
+          continue;
+
+        StatusString += Char.ToString( ContentChar );
+        }
+
+      StatusString += "\r\n";
+      }
+
+
     // UTF8String.
+
     if( TagVal == 19 ) // Printable String
       {
       for( int Count = 0; Count < Length; Count++ )
         {
-        char ContentChar = (char)OneCertificate[Index];
+        char ContentChar = (char)TagsBuffer[Index];
         Index++;
 
         // Make sure it has valid ASCII characters.
@@ -748,7 +913,7 @@ namespace ExampleServer
       byte[] CodedBytes = new byte[Length];
       for( int Count = 0; Count < Length; Count++ )
         {
-        CodedBytes[Count] = OneCertificate[Index];
+        CodedBytes[Count] = TagsBuffer[Index];
         Index++;
         }
 
@@ -780,21 +945,165 @@ namespace ExampleServer
 
 
 
-  internal string GetCertificateBytesShowString()
+  internal void AddBitStreamRec( BitStreamRec Rec )
     {
-    if( CertificateList == null )
-      return "";
+    // if( Rec == null )
+      // return false;
 
-    StringBuilder SBuilder = new StringBuilder();
-    for( int Count = 0; Count < CertificateList.Length; Count++ )
+    BitStreamRecArray[BitStreamRecArrayLast] = Rec;
+    BitStreamRecArrayLast++;
+
+    if( BitStreamRecArrayLast >= BitStreamRecArray.Length )
       {
-      SBuilder.Append( Count.ToString() + ") " + CertificateList[Count].ToString("X2") + "\r\n" );
-      if( Count > 99 )
-        break;
+      try
+      {
+      Array.Resize( ref BitStreamRecArray, BitStreamRecArray.Length + 8 );
+      }
+      catch( Exception Except )
+        {
+        throw( new Exception( "Couldn't resize the arrays for AddBitStreamRec(). " + Except.Message ));
+        }
+      }
+    }
+
+
+
+  private void ProcessBitStreamRecs()
+    {
+    for( int Count = 0; Count < BitStreamRecArrayLast; Count++ )
+      {
+      string OIDString = BitStreamRecArray[Count].OIDString;
+      StatusString += "\r\n\r\nProcessing BitStream at: " + Count.ToString() + "\r\n" +
+             "OIDString: " + OIDString + "\r\n" +
+             "OID Name is: " + ObjectIDNames.GetNameFromDictionary( BitStreamRecArray[Count].OIDString ) + "\r\n";
+
+      byte[] ByteArray = BitStreamRecArray[Count].BitStream;
+      StatusString += "ByteArray.Length: " + ByteArray.Length.ToString() + "\r\n";
+
+      if( OIDString == "1.2.840.113549.1.1.1" ) // The public keys.
+        {
+        if( Count == 0 )
+          {
+          ParsePublicKeys( ByteArray );
+          continue;
+          }
+
+        ParseNotDone( ByteArray );
+        continue;
+        }
+
+      // if( OIDString == "1.2.840.113549.1.1.2" ) // "RSA_MD2RSA";
+      // if( OIDString == "1.2.840.113549.1.1.3" ) // RSA_MD4RSA
+      // if( OIDString == "1.2.840.113549.1.1.4" ) // RSA_MD5RSA
+
+      // RFC 2437, 3370";
+      // SHA1 has a 20 byte hash.  But "rendered as hex, 40 digits long.
+      // "Microsoft, Google and Mozilla have all announced that their
+      // respective browsers will stop accepting SHA-1 SSL certificates by 2017."
+
+      if( OIDString == "1.2.840.113549.1.1.5" ) // SHA1 with RSA
+        {
+        ParseSHA1WithRSA( ByteArray );
+        continue;
+        }
+
+      // if( OIDString == "1.2.840.113549.1.1.11" ) // SHA256 with RSA
+
+      // if( OIDString == "1.2.840.113549.1.1.12" ) // SHA384 with RSA
 
       }
+    }
 
-    return SBuilder.ToString();
+
+
+  private void ParseNotDone( byte[] ParseArray )
+    {
+    StatusString += "This byte array was not parsed.\r\n";
+    }
+
+
+  // OIDString: 1.2.840.113549.1.1.1
+  private bool ParsePublicKeys( byte[] ParseArray )
+    {
+    StatusString += "Top of ParsePublicKeys().\r\n";
+
+    if( ParseArray == null )
+      return false;
+
+    // See if it's a reasonable number.
+    if( ParseArray.Length < 10 )
+      {
+      StatusString += "ParseArray.Length < 10.\r\n";
+      return false;
+      }
+
+    int Index = 0;
+
+    // Apparently this is not a context specific tag.
+    // And its length of 48 makes no sense.
+    Index = ProcessOneTag( Index, ParseArray );
+    if( MostRecentTagValue != 0 ) // Context Specific tag
+      {
+      StatusString += "This tag should be a context specific tag.\r\n";
+      return false;
+      }
+
+    // Apparently the first number is the version.
+    // But it's not in the Android In-App billing version 1.5 public key.
+    Index = ProcessOneTag( Index, ParseArray );
+    if( MostRecentTagValue != 2 ) // Integer
+      {
+      StatusString += "This second tag should be an Integer.\r\n";
+      return false;
+      }
+
+    // This is the Modulus.
+    Index = ProcessOneTag( Index, ParseArray );
+    if( MostRecentTagValue != 2 ) // Integer
+      {
+      StatusString += "An Integer tag wasn't there.\r\n";
+      return false;
+      }
+
+    PublicKeyModulus = IntMath.ToString10( MostRecentIntegerValue );
+
+    // This is the Exponent.
+    Index = ProcessOneTag( Index, ParseArray );
+    if( MostRecentTagValue != 2 ) // Integer
+      {
+      StatusString += "An Integer tag wasn't there.\r\n";
+      return false;
+      }
+
+    PublicKeyExponent = IntMath.ToString10( MostRecentIntegerValue );
+    return true;
+    }
+
+
+
+  private bool ParseSHA1WithRSA( byte[] ParseArray )
+    {
+    StatusString += "Top of ParseSHA1WithRSA().\r\n";
+
+    if( ParseArray == null )
+      return false;
+
+    // See if it's a reasonable number.
+    if( ParseArray.Length < 10 )
+      {
+      StatusString += "ParseArray.Length < 10.\r\n";
+      return false;
+      }
+
+    int Index = 0;
+    // See what's in it.
+    for( int Count = 0; Count < ParseArray.Length; Count++ )
+      {
+      int ShowByte = ParseArray[Count];
+      StatusString += "Byte at " + Count.ToString() + ") " + ShowByte.ToString() + "\r\n";
+      }
+
+    return true;
     }
 
 
