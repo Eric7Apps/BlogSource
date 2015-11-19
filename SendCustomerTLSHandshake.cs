@@ -35,7 +35,7 @@ namespace ExampleServer
     WInfo = UseWInfo;
     StartTime = new ECTime();
     StartTime.SetToNow();
-    MsgClient = new CustomerTLSClient();
+    MsgClient = new CustomerTLSClient( WInfo.ServerIPOrDomainName );
     }
 
 
@@ -45,7 +45,7 @@ namespace ExampleServer
     if( MsgClient != null )
       {
       MsgClient.FreeEverything();
-      MsgClient = null;
+      // MsgClient = null;
       }
     }
 
@@ -71,6 +71,15 @@ namespace ExampleServer
 
     Worker.ReportProgress( 0, "Connected to the server at: " + WInfo.ServerIPOrDomainName );
     return true;
+    }
+
+
+  internal DomainX509Record GetX509Record()
+    {
+    if( MsgClient == null )
+      return null;
+
+    return MsgClient.GetX509Record();
     }
 
 
@@ -123,12 +132,12 @@ namespace ExampleServer
 
       double HowLong = MsgClient.GetLastReadWriteTimeSecondsToNow();
 
-      if( HowLong > 10 )
+      if( HowLong > 5 )
         {
         Worker.ReportProgress( 0, "Timed out waiting for the server." );
         Worker.ReportProgress( 0, "Delay time is: " + HowLong.ToString( "N1" ) + " seconds." );
-        Thread.Sleep( 1000 );
-        return false;
+        // Thread.Sleep( 1000 );
+        return true;
         }
 
       if( Worker.CancellationPending )
