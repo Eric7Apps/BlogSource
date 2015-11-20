@@ -17,21 +17,20 @@ namespace ExampleServer
   private IntegerMath IntMath;
   private Integer Quotient;
   private Integer Remainder;
-  private Integer Temp1;
-  private Integer Temp2;
-  private Integer Test1;
-  private Integer PrimeToFind;
+  // private Integer Temp1;
+  // private Integer Temp2;
+  // private Integer Test1;
+  // private Integer PrimeToFind;
   private BackgroundWorker Worker;
   private MakeKeysWorkerInfo WInfo;
   private RNGCryptoServiceProvider RngCsp;
   private ECTime StartTime;
-  private int GoodLoopCount = 0;
-  private int BadLoopCount = 0;
   private FindFactors FindFactors1;
 
 
-  // private const int PrimeIndex = 1; // Approximmately 64-bit primes.
-  private const int PrimeIndex = 2; // Approximmately 96-bit primes.
+  // private const int PrimeIndex = 0; // Approximmately 32-bit primes.
+  private const int PrimeIndex = 1; // Approximmately 64-bit primes.
+  // private const int PrimeIndex = 2; // Approximmately 96-bit primes.
   // private const int PrimeIndex = 3; // Approximmately 128-bit primes.
   // private const int PrimeIndex = 7; // Approximmately 256-bit primes.
   // private const int PrimeIndex = 15; // Approximmately 512-bit primes.
@@ -60,10 +59,10 @@ namespace ExampleServer
     Worker.ReportProgress( 0, IntMath.GetStatusString() );
     Quotient = new Integer();
     Remainder = new Integer();
-    Temp1 = new Integer();
-    Temp2 = new Integer();
-    Test1 = new Integer();
-    PrimeToFind = new Integer();
+    // Temp1 = new Integer();
+    // Temp2 = new Integer();
+    // Test1 = new Integer();
+    // PrimeToFind = new Integer();
     FindFactors1 = new FindFactors( Worker, IntMath );
     }
 
@@ -107,10 +106,19 @@ namespace ExampleServer
         return false;
         }
 
+      // When testing with small numbers, make them a little smaller.
+      ulong MaskTop = Result.GetD( RandomIndex ) & 0xF;
+      if( MaskTop != 0 )
+        Result.SetD( RandomIndex, MaskTop );
+      else
+        continue;
+
+      /*
       Worker.ReportProgress( 0, " " );
       FindFactors1.FindAllFactors( Result );
       FindFactors1.ShowAllFactors();
       Worker.ReportProgress( 0, " " );
+      */
 
       // Make sure that it's about the size I think it is.
       if( Result.GetIndex() < RandomIndex )
@@ -237,6 +245,11 @@ namespace ExampleServer
       Worker.ReportProgress( 0, " " );
       Worker.ReportProgress( 0, "PubKeyN:" );
       Worker.ReportProgress( 0, IntMath.ToString10( PubKeyN ));
+      Worker.ReportProgress( 0, " " );
+
+      Worker.ReportProgress( 0, " " );
+      FindFactors1.FindAllFactors( PubKeyN );
+      FindFactors1.ShowAllFactors();
       Worker.ReportProgress( 0, " " );
 
       // return; // Comment this out to just leave it while( true ) for testing.
