@@ -28,6 +28,9 @@ namespace ExampleServer
   private Integer Remainder;
   private BackgroundWorker Worker;
   private uint[] DivisionArray;
+  private uint[] QuadResArray;
+  private uint QuadResArrayLast = 0;
+  private uint QuadResBigBase = 0;
   private OneFactorRec[] FactorsArray;
   private int FactorsArrayLast = 0;
   private int[] SortIndexArray;
@@ -35,6 +38,7 @@ namespace ExampleServer
   private Integer FindFrom;
   private SortedDictionary<uint, uint> StatsDictionary;
   private int NumbersTested = 0;
+
 
   private FindFactors()
     {
@@ -131,6 +135,7 @@ namespace ExampleServer
       StatsDictionary[Prime] = 1;
 
     }
+
 
 
 
@@ -239,13 +244,52 @@ namespace ExampleServer
       return;
       }
 
-    OneFactor = new Integer();
-    OneFactor.Copy( FindFrom );
-    Rec = new OneFactorRec();
-    Rec.Factor = OneFactor;
-    Rec.IsDefinitelyNotAPrime = true; // Because Fermat returned false.
-    AddFactorRec( Rec );
-    // Worker.ReportProgress( 0, "That's all it could find." );
+    Integer P = new Integer();
+    Integer Q = new Integer();
+    FindTwoFactorsWithFermat( FindFrom, P, Q );
+
+    if( !P.IsZero())
+      {
+      if( IsFermatPrimeAdded( P ))
+        {
+        Worker.ReportProgress( 0, "P from Fermat method was probably a prime." );
+        }
+      else
+        {
+        OneFactor = new Integer();
+        OneFactor.Copy( P );
+        Rec = new OneFactorRec();
+        Rec.Factor = OneFactor;
+        Rec.IsDefinitelyNotAPrime = true; // Because Fermat returned false.
+        AddFactorRec( Rec );
+        }
+
+      if( IsFermatPrimeAdded( Q ))
+        {
+        Worker.ReportProgress( 0, "Q from Fermat method was probably a prime." );
+        }
+      else
+        {
+        OneFactor = new Integer();
+        OneFactor.Copy( Q );
+        Rec = new OneFactorRec();
+        Rec.Factor = OneFactor;
+        Rec.IsDefinitelyNotAPrime = true; // Because Fermat returned false.
+        AddFactorRec( Rec );
+        }
+      }
+    else
+      {
+      // Didn't find any with Fermat.
+      OneFactor = new Integer();
+      OneFactor.Copy( FindFrom );
+      Rec = new OneFactorRec();
+      Rec.Factor = OneFactor;
+      Rec.IsDefinitelyNotAPrime = true; // Because Fermat returned false.
+      AddFactorRec( Rec );
+      }
+
+    Worker.ReportProgress( 0, "That's all it could find." );
     VerifyFactors();
     }
 
@@ -452,6 +496,233 @@ namespace ExampleServer
 
     return 0; // Didn't find a number to divide it.
     }
+
+
+
+  private void SetupQuadResArray( Integer Product )
+    {
+    // I'm doing this differently from finding y^2 = x^2 - N,
+    // which I think would be faster, unless it complicates it too
+    // much by having to use large Integers and doing subtraction.
+    // Here it's looking for when
+    // P + x^2 = y^2.
+
+    // private uint[] QuadResArraySmall;
+    // private uint[] QuadResArray;
+    uint SmallBase = 2 * 3 * 5 * 7 * 11 * 13; // 30,030
+    //               2   3   3   4    6    7
+    int SmallBaseArraySize = 2 * 3 * 3 * 4 * 6 * 7; // This is not exact.
+    uint[] QuadResArraySmall = new uint[SmallBaseArraySize];
+    uint QuadResArraySmallLast = 0;
+    uint ProductModSmall = (uint)IntMath.GetMod32( Product, SmallBase );
+    QuadResArraySmallLast = 0;
+    uint ProdMod4 = (uint)Product.GetD( 0 ) & 3;
+    for( ulong Count = 0; Count < SmallBase; Count++ )
+      {
+      /*
+      // P is odd.
+      // if x is even then y is odd.
+      // if x is odd then y is even.
+      // If x is even then x^2 is divisible by 4.
+      // If y is even then y^2 is divisible by 4.
+      if( (Count & 1) == 0 ) // if X is even.
+        {
+        // P + x^2 mod 4 = Y mod 4 = P mod 4.
+        if( (Test & ProdMod4) != ProdMod4 )
+          continue;
+
+        }
+      else
+        {
+        // X is odd, so y is even, so y is divisible by 4.
+        if( (Test & 3) != 0 )
+          continue;
+
+        }
+        */
+
+      ulong Test = ProductModSmall + (Count * Count); // The Product plus a square.
+      Test = Test % SmallBase;
+      if( !IntegerMath.IsSmallQuadResidue( (uint)Test ))
+        continue;
+
+      // What Count was used to make a quad residue?
+      QuadResArraySmall[QuadResArraySmallLast] = (uint)Count;
+      QuadResArraySmallLast++;
+      if( QuadResArraySmallLast >= SmallBaseArraySize )
+        throw( new Exception( "Went past the small quad res array." ));
+
+      }
+
+    Worker.ReportProgress( 0, "Finished setting up small quad res array." );
+
+
+    QuadResBigBase = SmallBase * 17 * 19 * 23; // 223,092,870
+    //                                             17   19   23
+    int QuadResBaseArraySize = SmallBaseArraySize * 9 * 10 * 12; // This is not exact.
+
+    QuadResArray = new uint[QuadResBaseArraySize];
+
+    uint ProductMod = (uint)IntMath.GetMod32( Product, QuadResBigBase );
+    int MaxLength = QuadResArray.Length;
+
+    QuadResArrayLast = 0;
+    for( ulong Count23 = 0; Count23 < (17 * 19 * 23); Count23++ )
+      {
+      if( Worker.CancellationPending )
+        return;
+
+      ulong BasePart = Count23 * SmallBase;
+      for( uint Count = 0; Count < QuadResArraySmallLast; Count++ )
+        {
+        ulong CountPart = BasePart + QuadResArraySmall[Count];
+        ulong Test = ProductMod + (CountPart * CountPart); // The Product plus a square.
+        Test = Test % QuadResBigBase;
+        if( !IntegerMath.IsQuadResidue17To23( (uint)Test ))
+          continue;
+
+        // What Count was used to make a quad residue?
+        QuadResArray[QuadResArrayLast] = (uint)CountPart;
+        QuadResArrayLast++;
+        if( QuadResArrayLast >= MaxLength )
+          throw( new Exception( "Went past the quad res array." ));
+
+        }
+      }
+
+    Worker.ReportProgress( 0, "Finished setting up main quad res array." );
+    }
+
+
+
+  internal void FindTwoFactorsWithFermat( Integer Product, Integer P, Integer Q )
+    {
+    Integer TestSqrt = new Integer();
+    Integer TestSquared = new Integer();
+    Integer SqrRoot = new Integer();
+
+    TestSquared.Copy( Product );
+    IntMath.Multiply( TestSquared, Product );
+    IntMath.SquareRoot( TestSquared, SqrRoot );
+    TestSqrt.Copy( SqrRoot );
+    IntMath.DoSquare( TestSqrt );
+    // IntMath.Multiply( TestSqrt, SqrRoot );
+    if( !TestSqrt.IsEqual( TestSquared ))
+      throw( new Exception( "The square test was bad." ));
+
+    Integer SmallestFactor = new Integer();
+    Integer MaxX = new Integer();
+    SmallestFactor.SetFromULong( 223092870 );
+    IntMath.Divide( Product, SmallestFactor, Quotient, Remainder );
+    MaxX.Copy( Quotient ); // The biggets factor.
+    IntMath.Subtract( MaxX, SmallestFactor );
+    MaxX.ShiftRight( 1 ); // Half of that.
+    ulong TestMax = 0;
+    if( MaxX.IsULong())
+      TestMax = MaxX.GetAsULong();
+
+    // Some primes:
+    // 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97,
+    // 101, 103, 107
+
+    P.SetToZero();
+    Q.SetToZero();
+    Integer TestX = new Integer();
+    SetupQuadResArray( Product );
+
+    // ulong BaseTo37 = QuadResBigBase * 29UL * 31UL * 37UL;
+    ulong BaseTo31 = QuadResBigBase * 29UL * 31UL;
+    // ulong ProdModTo37 = IntMath.GetMod64( Product, BaseTo37 );
+    ulong ProdModTo31 = IntMath.GetMod64( Product, BaseTo31 );
+    // for( ulong BaseCount = 0; BaseCount < (29 * 31 * 37); BaseCount++ )
+    for( ulong BaseCount = 0; BaseCount < (29 * 31); BaseCount++ )
+      {
+      Worker.ReportProgress( 0, "Find with Fermat BaseCount: " + BaseCount.ToString() );
+      if( Worker.CancellationPending )
+        return;
+
+      ulong Base = BaseCount * QuadResBigBase; // BaseCount times 223,092,870.
+      for( uint Count = 0; Count < QuadResArrayLast; Count++ )
+        {
+        // The maximum CountPart can be is just under half the size of
+        // the Product. (Like if Y - X was equal to 1, and Y + X was
+        // equal to the Product.)  If it got anywhere near that big it
+        // would be inefficient to try and find it this way.
+        ulong CountPart = Base + QuadResArray[Count];
+        // ulong Test = ProdModTo37 + (CountPart * CountPart);
+        ulong Test = ProdModTo31 + (CountPart * CountPart);
+        // Test = Test % BaseTo37;
+        Test = Test % BaseTo31;
+        if( !IntegerMath.IsQuadResidue29( Test ))
+          continue;
+
+        if( !IntegerMath.IsQuadResidue31( Test ))
+          continue;
+
+        // if( !IntegerMath.IsQuadResidue37( Test ))
+          // continue;
+
+        ulong TestBytes = (CountPart & 0xFFFFF);
+        TestBytes *= (CountPart & 0xFFFFF);
+        ulong ProdBytes = Product.GetD( 1 );
+        ProdBytes <<= 8;
+        ProdBytes |= Product.GetD( 0 );
+
+        uint FirstBytes = (uint)(TestBytes + ProdBytes);
+        if( !IntegerMath.FirstBytesAreQuadRes( FirstBytes ))
+          {
+          // Worker.ReportProgress( 0, "First bytes aren't quad res." );
+          continue;
+          }
+
+        if( TestMax != 0 )
+          {
+          if( CountPart > TestMax );
+            {
+            Worker.ReportProgress( 0, "Went past MaxX for Fermat." );
+            return;
+            }
+          }
+
+        TestX.SetFromULong( CountPart );
+        IntMath.MultiplyULong( TestX, CountPart );
+        TestX.Add( Product );
+
+        if( IntMath.SquareRoot( TestX, SqrRoot ))
+          {
+          Worker.ReportProgress( 0, " " );
+          if( (CountPart & 1) == 0 )
+            Worker.ReportProgress( 0, "CountPart was even." );
+          else
+            Worker.ReportProgress( 0, "CountPart was odd." );
+
+          // Found an exact square root.
+          // P + (CountPart * CountPart) = Y*Y
+          // P = (Y + CountPart)Y - CountPart)
+
+          P.Copy( SqrRoot );
+          P.AddULong( CountPart );
+
+          Q.Copy( SqrRoot );
+          Integer ForSub = new Integer();
+          ForSub.SetFromULong( CountPart );
+          IntMath.Subtract( Q, ForSub );
+
+          Worker.ReportProgress( 0, "Found P: " + IntMath.ToString10( P ) );
+          Worker.ReportProgress( 0, "Found Q: " + IntMath.ToString10( Q ) );
+          Worker.ReportProgress( 0, " " );
+          throw( new Exception( "Testing this." ));
+          // return; // With P and Q.
+          }
+        // else
+          // Worker.ReportProgress( 0, "It was not an exact square root." );
+
+        }
+      }
+
+    // P and Q would still be zero if it never found them.
+    }
+
 
 
   }
