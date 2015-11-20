@@ -72,6 +72,8 @@ namespace ExampleServer
   private int MaxModPowerIndex = 0;
   private Integer OriginalValue;
   private Integer AccumulateBase;
+  private Integer TestForSquareRoot;
+
   private Integer[] BaseArrayP;
   private Integer[] BaseArrayQ;
   private Integer[] GeneralBaseArray;
@@ -136,6 +138,7 @@ namespace ExampleServer
     TempForModPower = new Integer();
     OriginalValue = new Integer();
     AccumulateBase = new Integer();
+    TestForSquareRoot = new Integer();
     ByteStats = new int[256,256];
 
     MakePrimeArray();
@@ -171,7 +174,7 @@ namespace ExampleServer
     {
     if( ToTest <= 3 )
       return 0;
-      
+
     uint Max = (uint)FindULSqrRoot( ToTest ); 
 
     for( int Count = 0; Count < PrimeArrayLength; Count++ )
@@ -236,6 +239,7 @@ namespace ExampleServer
     if( (ToTest.GetD( 0 ) & 1) == 0 )
       return 2; // It's divisible by 2.
 
+    // Is there a way to optimize GetMod3()?
     if( 0 == GetMod3( ToTest ))
       return 3;
 
@@ -1118,6 +1122,15 @@ namespace ExampleServer
 
   internal void SetFromString( Integer Result, string InString )
     {
+    if( InString == null )
+      throw( new Exception( "InString was null in SetFromString()." ));
+
+    if( InString.Length < 1 )
+      {
+      Result.SetToZero();
+      return;
+      }
+
     Base10Number Base10N = new Base10Number();
     Integer Tens = new Integer();
     Integer OnePart = new Integer();
@@ -1211,7 +1224,15 @@ namespace ExampleServer
           (Test == 10)) )
       return false;
 
-    Test = Number % 17;
+    // If it made it this far...
+    return true;
+    }
+
+
+
+  internal static bool IsQuadResidue17To23( uint Number )
+    {
+    uint Test = Number % 17;
     if( !((Test == 0) ||
           (Test == 1) ||
           (Test == 4) ||
@@ -1255,6 +1276,85 @@ namespace ExampleServer
     return true;
     }
 
+
+
+  internal static bool IsQuadResidue29( ulong Number )
+    {
+    uint Test = (uint)(Number % 29);
+    if( !((Test == 0) ||
+          (Test == 1) ||
+          (Test == 4) ||
+          (Test == 9) ||
+          (Test == 16) ||
+          (Test == 25) ||
+          (Test == 7) ||
+          (Test == 20) ||
+          (Test == 6) ||
+          (Test == 23) ||
+          (Test == 13) ||
+          (Test == 5) ||
+          (Test == 28) ||
+          (Test == 24) ||
+          (Test == 22)) )
+      return false;
+
+    return true;
+    }
+
+
+
+  internal static bool IsQuadResidue31( ulong Number )
+    {
+    uint Test = (uint)(Number % 31);
+    if( !((Test == 0) ||
+          (Test == 1) ||
+          (Test == 4) ||
+          (Test == 9) ||
+          (Test == 16) ||
+          (Test == 25) ||
+          (Test == 5) ||
+          (Test == 18) ||
+          (Test == 2) ||
+          (Test == 19) ||
+          (Test == 7) ||
+          (Test == 28) ||
+          (Test == 20) ||
+          (Test == 14) ||
+          (Test == 10) ||
+          (Test == 8)))
+      return false;
+
+    return true;
+    }
+
+
+
+  internal static bool IsQuadResidue37( ulong Number )
+    {
+    uint Test = (uint)(Number % 37);
+    if( !((Test == 0) ||
+          (Test == 1) ||
+          (Test == 4) ||
+          (Test == 9) ||
+          (Test == 16) ||
+          (Test == 25) ||
+          (Test == 36) ||
+          (Test == 12) ||
+          (Test == 27) ||
+          (Test == 7) ||
+          (Test == 26) ||
+          (Test == 10) ||
+          (Test == 33) ||
+          (Test == 21) ||
+          (Test == 11) ||
+          (Test == 3) ||
+          (Test == 34) ||
+          (Test == 30) ||
+          (Test == 28)))
+      return false;
+
+    return true;
+    }
 
 
   internal static bool FirstBytesAreQuadRes( uint Test )
@@ -1357,9 +1457,9 @@ namespace ExampleServer
     // Now Index is at least 3:
     int DoubleIndex = ToSquare.GetIndex() << 1;
     if( DoubleIndex >= Integer.DigitArraySize )
-      {    
+      {
       throw( new Exception( "Square() overflowed." ));
-      }        
+      }
        
     for( int Row = 0; Row <= ToSquare.GetIndex(); Row++ )
       {
@@ -2128,8 +2228,6 @@ namespace ExampleServer
 
       }
 
-    Integer Test1 = new Integer();
-
     int TestIndex = Square.GetIndex() >> 1; // LgSquare.Index / 2;
     SqrRoot.SetDigitAndClear( TestIndex, 1 );
     // if( (TestIndex * 2) > (LgSquare.Index - 1) )
@@ -2161,9 +2259,9 @@ namespace ExampleServer
     if( ((SqrRoot.GetD( 0 ) * SqrRoot.GetD( 0 )) & 0xFFFFFFFF) != Square.GetD( 0 ))
       return false;
     
-    Test1.Copy( SqrRoot );
-    DoSquare( Test1 );
-    if( Square.IsEqual( Test1 ))
+    TestForSquareRoot.Copy( SqrRoot );
+    DoSquare( TestForSquareRoot );
+    if( Square.IsEqual( TestForSquareRoot ))
       return true;
     else
       return false;
@@ -2172,7 +2270,6 @@ namespace ExampleServer
 
 
 
-  // Test all this.
 
   private void SearchSqrtXPart( int TestIndex, Integer Square, Integer SqrRoot )
     {
