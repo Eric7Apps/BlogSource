@@ -244,9 +244,11 @@ namespace ExampleServer
       return;
       }
 
+    // If it got this far then it's definitely composite or definitely 
+    // small enough to factor.
     Integer P = new Integer();
     Integer Q = new Integer();
-    FindTwoFactorsWithFermat( FindFrom, P, Q );
+    bool TestedAllTheWay = FindTwoFactorsWithFermat( FindFrom, P, Q );
 
     if( !P.IsZero())
       {
@@ -260,7 +262,7 @@ namespace ExampleServer
         OneFactor.Copy( P );
         Rec = new OneFactorRec();
         Rec.Factor = OneFactor;
-        Rec.IsDefinitelyNotAPrime = true; // Because Fermat returned false.
+        // Rec.IsDefinitelyNotAPrime =
         AddFactorRec( Rec );
         }
 
@@ -274,7 +276,7 @@ namespace ExampleServer
         OneFactor.Copy( Q );
         Rec = new OneFactorRec();
         Rec.Factor = OneFactor;
-        Rec.IsDefinitelyNotAPrime = true; // Because Fermat returned false.
+        // Rec.IsDefinitelyNotAPrime =
         AddFactorRec( Rec );
         }
       }
@@ -285,7 +287,11 @@ namespace ExampleServer
       OneFactor.Copy( FindFrom );
       Rec = new OneFactorRec();
       Rec.Factor = OneFactor;
-      Rec.IsDefinitelyNotAPrime = true; // Because Fermat returned false.
+      if( TestedAllTheWay )
+        Rec.IsDefinitelyAPrime = true;
+      else
+        Rec.IsDefinitelyNotAPrime = true;
+
       AddFactorRec( Rec );
       }
 
@@ -519,27 +525,11 @@ namespace ExampleServer
     uint ProdMod4 = (uint)Product.GetD( 0 ) & 3;
     for( ulong Count = 0; Count < SmallBase; Count++ )
       {
-      /*
       // P is odd.
       // if x is even then y is odd.
       // if x is odd then y is even.
       // If x is even then x^2 is divisible by 4.
       // If y is even then y^2 is divisible by 4.
-      if( (Count & 1) == 0 ) // if X is even.
-        {
-        // P + x^2 mod 4 = Y mod 4 = P mod 4.
-        if( (Test & ProdMod4) != ProdMod4 )
-          continue;
-
-        }
-      else
-        {
-        // X is odd, so y is even, so y is divisible by 4.
-        if( (Test & 3) != 0 )
-          continue;
-
-        }
-        */
 
       ulong Test = ProductModSmall + (Count * Count); // The Product plus a square.
       Test = Test % SmallBase;
@@ -554,7 +544,7 @@ namespace ExampleServer
 
       }
 
-    Worker.ReportProgress( 0, "Finished setting up small quad res array." );
+    // Worker.ReportProgress( 0, "Finished setting up small quad res array." );
 
 
     QuadResBigBase = SmallBase * 17 * 19 * 23; // 223,092,870
@@ -595,7 +585,7 @@ namespace ExampleServer
 
 
 
-  internal void FindTwoFactorsWithFermat( Integer Product, Integer P, Integer Q )
+  internal bool FindTwoFactorsWithFermat( Integer Product, Integer P, Integer Q )
     {
     Integer TestSqrt = new Integer();
     Integer TestSquared = new Integer();
@@ -609,17 +599,6 @@ namespace ExampleServer
     // IntMath.Multiply( TestSqrt, SqrRoot );
     if( !TestSqrt.IsEqual( TestSquared ))
       throw( new Exception( "The square test was bad." ));
-
-    Integer SmallestFactor = new Integer();
-    Integer MaxX = new Integer();
-    SmallestFactor.SetFromULong( 223092870 );
-    IntMath.Divide( Product, SmallestFactor, Quotient, Remainder );
-    MaxX.Copy( Quotient ); // The biggets factor.
-    IntMath.Subtract( MaxX, SmallestFactor );
-    MaxX.ShiftRight( 1 ); // Half of that.
-    ulong TestMax = 0;
-    if( MaxX.IsULong())
-      TestMax = MaxX.GetAsULong();
 
     // Some primes:
     // 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97,
@@ -639,7 +618,7 @@ namespace ExampleServer
       {
       Worker.ReportProgress( 0, "Find with Fermat BaseCount: " + BaseCount.ToString() );
       if( Worker.CancellationPending )
-        return;
+        return false;
 
       ulong Base = BaseCount * QuadResBigBase; // BaseCount times 223,092,870.
       for( uint Count = 0; Count < QuadResArrayLast; Count++ )
@@ -675,19 +654,19 @@ namespace ExampleServer
           continue;
           }
 
-        if( TestMax != 0 )
-          {
-          if( CountPart > TestMax );
-            {
-            Worker.ReportProgress( 0, "Went past MaxX for Fermat." );
-            return;
-            }
-          }
-
         TestX.SetFromULong( CountPart );
         IntMath.MultiplyULong( TestX, CountPart );
         TestX.Add( Product );
 
+        uint Mod37 = (uint)IntMath.GetMod32( TestX, 37 );
+        if( !IntegerMath.IsQuadResidue37( Mod37 ))
+          continue;
+
+        // Do more of these tests with 41, 43, 47...
+        // if( !IntegerMath.IsQuadResidue41( Mod37 ))
+          // continue;
+
+        // Avoid doing this square root at all costs.
         if( IntMath.SquareRoot( TestX, SqrRoot ))
           {
           Worker.ReportProgress( 0, " " );
@@ -708,11 +687,24 @@ namespace ExampleServer
           ForSub.SetFromULong( CountPart );
           IntMath.Subtract( Q, ForSub );
 
+          if( P.IsOne() || Q.IsOne())
+            {
+            // This happens when testing with small primes.
+            Worker.ReportProgress( 0, " " );
+            Worker.ReportProgress( 0, " " );
+            Worker.ReportProgress( 0, "Went all the way to 1 in FindTwoFactorsWithFermat()." );
+            Worker.ReportProgress( 0, " " );
+            Worker.ReportProgress( 0, " " );
+            P.SetToZero(); // It has no factors.
+            Q.SetToZero();
+            return true; // Tested everything, so it's a prime.
+            }
+
           Worker.ReportProgress( 0, "Found P: " + IntMath.ToString10( P ) );
           Worker.ReportProgress( 0, "Found Q: " + IntMath.ToString10( Q ) );
           Worker.ReportProgress( 0, " " );
           throw( new Exception( "Testing this." ));
-          // return; // With P and Q.
+          // return true; // With P and Q.
           }
         // else
           // Worker.ReportProgress( 0, "It was not an exact square root." );
@@ -721,6 +713,7 @@ namespace ExampleServer
       }
 
     // P and Q would still be zero if it never found them.
+    return false;
     }
 
 
