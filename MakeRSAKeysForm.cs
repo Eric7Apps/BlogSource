@@ -69,6 +69,9 @@ namespace ExampleServer
     if( IsDisposed )
       return;
 
+    if( MainTextBox.Text.Length > (80 * 100000))
+      MainTextBox.Text = "";
+
     MainTextBox.AppendText( Status + "\r\n" ); 
     }
 
@@ -80,7 +83,7 @@ namespace ExampleServer
 
     if( Cancelled ) 
       {
-      ShowStatus( "Cancelled." );
+      // ShowStatus( "Cancelled." );
       return false;
       }
     else
@@ -157,9 +160,13 @@ namespace ExampleServer
       return;
       }
     
-    MakeKeysBackground MakeKeys = new MakeKeysBackground( Worker, WInfo );
-    MakeKeys.MakeRSAKeys();
-    MakeKeys.FreeEverything();
+    // MakeKeysBackground MakeKeys = new MakeKeysBackground( Worker, WInfo );
+    // MakeKeys.MakeRSAKeys();
+    // MakeKeys.FreeEverything();
+
+    FindFactorsBackground FindFac = new FindFactorsBackground( Worker, WInfo );
+    FindFac.FindFactors();
+    FindFac.FreeEverything();
 
     if( Worker.CancellationPending )
       {
@@ -182,6 +189,9 @@ namespace ExampleServer
     {
     // This runs in the UI thread.
     if( IsDisposed )
+      return;
+
+    if( Cancelled )
       return;
 
     if( MForm.GetIsClosing())
