@@ -330,6 +330,36 @@ namespace ExampleServer
 
 
 
+  internal void Increment()
+    {
+    D[0] += 1;
+ 
+    if( (D[0] >> 32) == 0 ) 
+      {
+      // If there's nothing to Carry then no reorganization is needed.
+      return; // Nothing to Carry.
+      }
+
+    ulong Carry = D[0] >> 32;
+    D[0] = D[0] & 0xFFFFFFFF;
+    for( int Count = 1; Count <= Index; Count++ )
+      {
+      ulong Total = Carry + D[Count]; 
+      D[Count] = Total & 0xFFFFFFFF;
+      Carry = Total >> 32;
+      }
+
+    if( Carry != 0 )
+      {
+      Index++;
+      if( Index >= DigitArraySize )
+        throw( new Exception( "Integer.Increment() overflow." ));
+
+      D[Index] = Carry;
+      }
+    }
+
+
 
   internal void AddULong( ulong ToAdd )
     {
