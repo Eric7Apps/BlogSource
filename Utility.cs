@@ -99,9 +99,6 @@ namespace ExampleServer
 
 
 
-
-
-
   private static bool IsInLetterRange( uint Letter )
     {
     const uint MaxLetter = (uint)('A') + 15;
@@ -121,7 +118,6 @@ namespace ExampleServer
 
     return true;
     }
-
 
 
 
@@ -175,6 +171,31 @@ namespace ExampleServer
       return null;
       }
     }
+
+
+  internal static void SortUintArray( ref uint[] ToSort )
+    {
+    int Last = ToSort.Length;
+    while( true )
+      {
+      bool Swapped = false;
+      for( int Count = 0; Count < (Last - 1); Count++ )
+        {
+        if( ToSort[Count] > ToSort[Count + 1] )
+          {
+          uint Temp = ToSort[Count];
+          ToSort[Count] = ToSort[Count + 1];
+          ToSort[Count + 1] = Temp;
+          Swapped = true;
+          }
+        }
+
+      if( !Swapped )
+        break;
+
+      }
+    }
+
 
 
   }
