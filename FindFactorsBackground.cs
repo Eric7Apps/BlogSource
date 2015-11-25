@@ -17,19 +17,15 @@ namespace ExampleServer
   private IntegerMath IntMath;
   private Integer Quotient;
   private Integer Remainder;
-  // private Integer Temp1;
-  // private Integer Temp2;
-  // private Integer Test1;
-  // private Integer PrimeToFind;
   private BackgroundWorker Worker;
   private MakeKeysWorkerInfo WInfo;
   private RNGCryptoServiceProvider RngCsp;
   private ECTime StartTime;
   private FindFactors FindFactors1;
+  private FindFactorsFromTop FindFromTop;
 
-
-  // private const int PrimeIndex = 0; // Approximmately 32-bit primes.
-  private const int PrimeIndex = 1; // Approximmately 64-bit primes.
+  private const int PrimeIndex = 0; // Approximmately 32-bit primes.
+  // private const int PrimeIndex = 1; // Approximmately 64-bit primes.
   // private const int PrimeIndex = 2; // Approximmately 96-bit primes.
   // private const int PrimeIndex = 3; // Approximmately 128-bit primes.
   // private const int PrimeIndex = 7; // Approximmately 256-bit primes.
@@ -59,11 +55,8 @@ namespace ExampleServer
     Worker.ReportProgress( 0, IntMath.GetStatusString() );
     Quotient = new Integer();
     Remainder = new Integer();
-    // Temp1 = new Integer();
-    // Temp2 = new Integer();
-    // Test1 = new Integer();
-    // PrimeToFind = new Integer();
     FindFactors1 = new FindFactors( Worker, IntMath );
+    FindFromTop = new FindFactorsFromTop( Worker, IntMath );
     }
 
 
@@ -79,7 +72,7 @@ namespace ExampleServer
 
 
 
-  private bool MakeAPrime( Integer Result, int RandomIndex, int HowMany )
+  private bool MakeAPrime( Integer Result, int SetToIndex, int HowMany )
     {
     try
     {
@@ -92,7 +85,7 @@ namespace ExampleServer
       // Don't hog the server's resources too much.
       Thread.Sleep( 1 ); // Give up the time slice.  Let other things run.
 
-      int HowManyBytes = (RandomIndex * 4) + 4;
+      int HowManyBytes = (SetToIndex * 4) + 4;
       byte[] RandBytes = MakeRandomBytes( HowManyBytes );
       if( RandBytes == null )
         {
@@ -100,18 +93,21 @@ namespace ExampleServer
         return false;
         }
 
-      if( !Result.MakeRandomOdd( RandomIndex, RandBytes ))
+      if( !Result.MakeRandomOdd( SetToIndex, RandBytes ))
         {
         Worker.ReportProgress( 0, "Error making random number in MakeKeysBackGround.MakeAPrime()." );
         return false;
         }
 
+
       // When testing with small numbers, make them a little smaller.
-      ulong MaskTop = Result.GetD( RandomIndex ) & 0xF;
+      // If the index is 1, then a mask of 0xF makes it 32 + 4 bits.
+      ulong MaskTop = Result.GetD( SetToIndex ) & 0xFFFFFFF;
       if( MaskTop != 0 )
-        Result.SetD( RandomIndex, MaskTop );
+        Result.SetD( SetToIndex, MaskTop );
       else
         continue;
+
 
       /*
       Worker.ReportProgress( 0, " " );
@@ -121,7 +117,7 @@ namespace ExampleServer
       */
 
       // Make sure that it's about the size I think it is.
-      if( Result.GetIndex() < RandomIndex )
+      if( Result.GetIndex() < SetToIndex )
         throw( new Exception( "Does this ever happen with the size of the prime?" ));
         // continue;
 
@@ -138,9 +134,7 @@ namespace ExampleServer
         continue;
         }
 
-
       Worker.ReportProgress( 0, "Fermat test." );
-
       if( !IntMath.IsFermatPrime( Result, HowMany ))
         {
         Attempts++;
@@ -248,9 +242,15 @@ namespace ExampleServer
       Worker.ReportProgress( 0, " " );
 
       Worker.ReportProgress( 0, " " );
-      FindFactors1.FindAllFactors( PubKeyN );
-      FindFactors1.ShowAllFactors();
+      Integer P = new Integer();
+      Integer Q = new Integer();
+      FindFromTop.FindTwoFactors( PubKeyN, P, Q );
+
+      // FindFactors1.FindAllFactors( PubKeyN );
+      // FindFactors1.ShowAllFactors();
       Worker.ReportProgress( 0, " " );
+
+      Thread.Sleep( 2000 );
 
       // return; // Comment this out to just leave it while( true ) for testing.
       }
