@@ -198,6 +198,17 @@ namespace ExampleServer
 
 
 
+  internal static ulong[] MakeULongArrayFromUIntArray( uint[] ToCopy )
+    {
+    ulong[] Result = new ulong[ToCopy.Length];
+    for( int Count = 0; Count < ToCopy.Length; Count++ )
+      Result[Count] = ToCopy[Count];
+
+    return Result;
+    }
+
+
+
   }
 }
 
