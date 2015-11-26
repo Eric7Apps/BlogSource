@@ -6,7 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Threading; // For Sleep().
+// using System.Threading; // For Sleep().
 using System.Threading.Tasks;
 using System.ComponentModel; // BackgroundWorker
 
@@ -41,19 +41,18 @@ namespace ExampleServer
   private const uint BaseTo13 = 2 * 3 * 5 * 7 * 11 * 13;
   private uint[] SmallPlusModArray;
   private uint[] SmallPlusModDiffArray;
-  private const uint XTestArrayBase =     2 * 3 * 5 * 7 * 11 * 13 * 17;
-  private const uint XTestArrayEulerPhi =     2 * 4 * 6 * 10 * 12 * 16;
-  private uint[] XTestArray;
   private Integer SolutionX;
   private Integer SolutionY;
   private Integer ProductModTopBQuotient;
   private const uint ModBitsModulus = 0x10000;
   private const uint ModBitsModulusBitMask = 0xFFFF;
   private Integer LeftQuotient;
-  // private uint[] Base17PlusModDiffArray;
   private BaseDiffRec[] BaseDiffArrays;
-  private const int BaseDiffArraysMaxIndex = 2;
+  private const int BaseDiffArraysMaxIndex = 4;
   // private FindFactors FindFactors1;
+  private uint[] XArrayForSum;
+  private uint[] MediumXArrayForSum;
+
 
 
   internal struct BaseDiffRec
@@ -121,15 +120,34 @@ namespace ExampleServer
     BaseDiffArrays[Index].PrimeIndex = 6;
     BaseDiffArrays[Index].Base = BaseDiffArrays[Index - 1].Base * BaseDiffArrays[Index].Prime;
 
-    // BaseDiffArraysMaxIndex = 2;
     Index = 2;
     BaseDiffArrays[Index].Prime = 19;
     BaseDiffArrays[Index].PrimeIndex = 7;
     BaseDiffArrays[Index].Base = BaseDiffArrays[Index - 1].Base * BaseDiffArrays[Index].Prime;
 
+    Index = 3;
+    BaseDiffArrays[Index].Prime = 23;
+    BaseDiffArrays[Index].PrimeIndex = 8;
+    BaseDiffArrays[Index].Base = BaseDiffArrays[Index - 1].Base * BaseDiffArrays[Index].Prime;
+
+    // BaseDiffArraysMaxIndex = 4;
+    Index = 4;
+    BaseDiffArrays[Index].Prime = 29;
+    BaseDiffArrays[Index].PrimeIndex = 9;
+    BaseDiffArrays[Index].Base = BaseDiffArrays[Index - 1].Base * BaseDiffArrays[Index].Prime;
+
+    /*
+    // BaseDiffArraysMaxIndex = 5;
+    Index = 5;
+    BaseDiffArrays[Index].Prime = 31;
+    BaseDiffArrays[Index].PrimeIndex = 10;
+    BaseDiffArrays[Index].Base = BaseDiffArrays[Index - 1].Base * BaseDiffArrays[Index].Prime;
+    */
+
+    // BasePlusModArray size is: 47,628,000
+    // Base is: 200,560,490,130
 
     SetupBaseArray();
-    SetupXTestArray();
 
     // FindFactors1 = new FindFactors( Worker, IntMath );
     }
@@ -237,8 +255,18 @@ namespace ExampleServer
 
   private bool MoveTopFactorsDown()
     {
-    if( TopBIndex == 0 )
-      throw( new Exception( "TopBIndex got to zero." ));
+    // The number would have already been checked for small primes
+    // so it can't get too small for this TopBIndex.
+    // 0   1   2   3    4
+    // 2 * 3 * 5 * 7 * 11
+    // 0) Base: 2
+    // 1) Base: 6
+    // 2) Base: 30
+    // 3) Base: 210
+    // 4) Base: 2,310 = 2 * 3 * 5 * 7 * 11
+
+    if( TopBIndex <= 4 )
+      throw( new Exception( "TopBIndex got too small." ));
 
     if( MaximumSmallFactor.ParamIsGreater( TopB ))
       throw( new Exception( "Bug. MaximumSmallFactor.ParamIsGreater( TopB )." ));
@@ -400,12 +428,6 @@ namespace ExampleServer
       if( (Loops & 0xFFF) == 1 )
         Worker.ReportProgress( 0, "Loops: " + Loops.ToString() );
 
-      if( (Loops & 0xFF) == 1 )
-        {
-        // Don't hog the server's resources too much.
-        Thread.Sleep( 1 ); // Give up the time slice.  Let other things run.
-        }
-
       // if( 0 == IntMath.GetMod32( XPlusY, SmallBase ))
       if( (SmallBaseCheck % BaseTo13) == 0 )
         return FindTheFactorsWithSmallBase( XPlusY, MaximumXPlusY );
@@ -465,7 +487,7 @@ namespace ExampleServer
 
       IntMath.Subtract( XTimesY, Temp );
 
-      if( FindXTheHardWay( XPlusY, XTimesY ))
+      if( FindXAndY( XPlusY, XTimesY ))
         {
         Integer Factor1 = new Integer();
         Integer Factor2 = new Integer();
@@ -519,12 +541,6 @@ namespace ExampleServer
       int Last = SmallPlusModArray.Length;
       for( int Count = 0; Count < Last; Count++ )
         {
-        if( (Count & 0xFF) == 1 )
-          {
-          // Don't hog the server's resources too much.
-          Thread.Sleep( 1 ); // Give up the time slice.  Let other things run.
-          }
-
         XPlusY.AddULong( SmallPlusModDiffArray[Count] );
 
         if( MaximumXPlusY.ParamIsGreater( XPlusY ))
@@ -558,7 +574,7 @@ namespace ExampleServer
 
         IntMath.Subtract( XTimesY, Temp );
 
-        if( FindXTheHardWay( XPlusY, XTimesY ))
+        if( FindXAndY( XPlusY, XTimesY ))
           {
           Integer Factor1 = new Integer();
           Integer Factor2 = new Integer();
@@ -597,15 +613,23 @@ namespace ExampleServer
     StartingXPlusY.Copy( XPlusY );
 
     uint Loops = 0;
-    // ulong IsInModCount = 0;
-    // ulong IsInModBitsPlusCount = 0;
     while( true )
       {
       Loops++;
-      // if( (Loops & 0x3) == 1 )
-        Worker.ReportProgress( 0, "Loops with Base " + BaseDiffArrays[Index].Prime.ToString() + ": " + Loops.ToString() );
 
-      // TestAdding.Copy( StartingXPlusY );
+      if( Index < 2 )
+        {
+        if( (Loops & 0xF) == 0 ) 
+          Worker.ReportProgress( 0, Loops.ToString( "N0" ) + ") Testing with Base " + BaseDiffArrays[Index].Prime.ToString() );
+
+        }
+      else
+        {
+        if( (Loops & 0x3) == 0 ) 
+          Worker.ReportProgress( 0, Loops.ToString( "N0" ) + ") Testing with Base " + BaseDiffArrays[Index].Prime.ToString() );
+
+        }
+
       XPlusY.Copy( StartingXPlusY );
       // Worker.ReportProgress( 0, "XPlusY test is:   " + IntMath.ToString10( XPlusY ));
       // Worker.ReportProgress( 0, "MaximumXPlusY is: " + IntMath.ToString10( MaximumXPlusY ));
@@ -613,31 +637,18 @@ namespace ExampleServer
       int Last = BaseDiffArrays[Index].DiffArray.Length;
       for( int Count = 0; Count < Last; Count++ )
         {
-        if( (Count & 0xFF) == 1 )
-          {
-          // Don't hog the server's resources too much.
-          Thread.Sleep( 1 ); // Give up the time slice.  Let other things run.
-          }
-
         XPlusY.AddULong( BaseDiffArrays[Index].DiffArray[Count] );
-        if( MaximumXPlusY.ParamIsGreater( XPlusY ))
-          return false;
-
         if( !IsInBitsTestArray( XPlusY ))
           continue;
 
-        // IsInModBitsPlusCount++;
+        if( MaximumXPlusY.ParamIsGreater( XPlusY ))
+          return false;
 
         if( Worker.CancellationPending )
           return false;
 
         if( !IsInPlusModArrays( XPlusY ))
           continue;
-
-        // IsInModCount++;
-        // Worker.ReportProgress( 0, "Loops: " + Loops.ToString() );
-        // Worker.ReportProgress( 0, "IsInModCount: " + IsInModCount.ToString() );
-        // Worker.ReportProgress( 0, "IsInModBitsPlusCount: " + IsInModBitsPlusCount.ToString() );
 
         // P - BB = B(x + y) + xy
         Temp.Copy( TopB );
@@ -651,7 +662,7 @@ namespace ExampleServer
 
         IntMath.Subtract( XTimesY, Temp );
 
-        if( FindXTheHardWay( XPlusY, XTimesY ))
+        if( FindXAndY( XPlusY, XTimesY ))
           {
           Integer Factor1 = new Integer();
           Integer Factor2 = new Integer();
@@ -674,7 +685,13 @@ namespace ExampleServer
 
       if( Index < BaseDiffArraysMaxIndex )
         {
-        if( 0 == IntMath.GetMod32( StartingXPlusY, BaseDiffArrays[Index + 1].Base ))
+        ulong ModVal = 0;
+        if( (BaseDiffArrays[Index + 1].Base >> 32) == 0 )
+          ModVal = IntMath.GetMod32( StartingXPlusY, BaseDiffArrays[Index + 1].Base );
+        else
+          ModVal = IntMath.GetMod64( StartingXPlusY, BaseDiffArrays[Index + 1].Base );
+
+        if( ModVal == 0 )
           {
           // Calling this recursively:
           return FindTheFactorsWithBaseDiffArray( Index + 1, StartingXPlusY, MaximumXPlusY );
@@ -885,6 +902,7 @@ namespace ExampleServer
 
       for( uint CountX = 0; CountX < Prime; CountX++ )
         {
+        ModArray[Count].XtoY[CountX] = 0xFFFFFFFF;
         ModArray[Count].XPlusY[CountX] = 0xFFFFFFFF;
         ModArray[Count].XTimesY[CountX] = 0xFFFFFFFF;
         }
@@ -906,15 +924,18 @@ namespace ExampleServer
             ModArray[Count].XTimesY[CountX] = (CountX * CountY) % Prime;
 
             /*
-            string ShowS = CountX.ToString() + "\t" +
+            if( Count < 20 )
+              {
+              string ShowS = CountX.ToString() + "\t" +
                            CountY.ToString() + "\t" +
                            ModArray[Count].B.ToString() + "\t" +
                            ModArray[Count].L.ToString() + "\t" +
                            ModArray[Count].XPlusY[CountX] + "\t" +
                            ModArray[Count].XTimesY[CountX];
 
-            Worker.ReportProgress( 0, ShowS );
-            */
+              Worker.ReportProgress( 0, ShowS );
+              }
+              */
             }
           }
         }
@@ -1003,7 +1024,7 @@ namespace ExampleServer
     catch( Exception Except )
       {
       Worker.ReportProgress( 0, Except.Message );
-      throw( new Exception( "This one. Exception in IsInXPlusYNoDupArray()." ));
+      throw( new Exception( "Exception in IsInXPlusYNoDupArray()." ));
       }
     }
 
@@ -1128,7 +1149,11 @@ namespace ExampleServer
     Worker.ReportProgress( 0, "BasePlusModArray size is: " + Last.ToString( "N0" ));
     Worker.ReportProgress( 0, "Base is: " + BaseDiffArrays[Index].Base.ToString( "N0" ));
 
-    BaseDiffArrays[Index].ModArray = BasePlusModArray;
+    BaseDiffArrays[Index - 1].ModArray = null; // Don't need this anymore.
+
+    if( Index < BaseDiffArraysMaxIndex )
+      BaseDiffArrays[Index].ModArray = BasePlusModArray;
+
     BaseDiffArrays[Index].DiffArray = new uint[BasePlusModArray.Length];
     ulong Previous = 0;
     Last = BasePlusModArray.Length;
@@ -1243,63 +1268,24 @@ namespace ExampleServer
 
 
 
-  private void SetupXTestArray()
-    {
-    try
-    {
-    // XTestArrayBase =     2 * 3 * 5 * 7 * 11 * 13 * 17;
-    // XTestArrayEulerPhi =     2 * 4 * 6 * 10 * 12 * 16;
-    XTestArray = new uint[XTestArrayEulerPhi];
-
-    int Index = 0;
-    for( uint Count = 0; Count < XTestArrayBase; Count++ )
-      {
-      if( (Count & 1) == 0 ) // If its an even number.
-        continue;
-
-      if( (Count % 3) == 0 ) // If its divisible by 3.
-        continue;
-
-      if( (Count % 5) == 0 )
-        continue;
-
-      if( (Count % 7) == 0 )
-        continue;
-
-      if( (Count % 11) == 0 )
-        continue;
-
-      if( (Count % 13) == 0 )
-        continue;
-
-      if( (Count % 17) == 0 )
-        continue;
-
-      XTestArray[Index] = Count;
-      Index++;
-      }
-    }
-    catch( Exception Except )
-      {
-      Worker.ReportProgress( 0, Except.Message );
-      throw( new Exception( "Exception in SetupXTestArray()." ));
-      }
-    }
 
 
 
-  private bool FindXTheHardWay( Integer XPlusY, Integer XTimesY )
+  private bool FindXAndY( Integer XPlusY, Integer XTimesY )
     {
     try
     {
     Worker.ReportProgress( 0, " " );
-    Worker.ReportProgress( 0, "Top of FindXTheHardWay()." );
+    Worker.ReportProgress( 0, "Top of FindXAndYBaseTo13()." );
 
-    Integer XY = new Integer();
+    MakeXArrayForSum( XPlusY );
+
+    Integer Y = new Integer();
     Integer X = new Integer();
     // P - BB = B(x + y) + xy
     // TopB );
-    ulong AGazillion = 1234567890123456Ul;
+    ulong AGazillion = 1234567890123456UL;
+    ulong QuickCheckCount = 0;
     for( ulong BigCount = 0; BigCount < AGazillion; BigCount++ )
       {
       if( Worker.CancellationPending )
@@ -1307,33 +1293,46 @@ namespace ExampleServer
 
       if( BigCount > 0 )
         {
-        if( (BigCount & 0xFF) == 0 )
+        if( (BigCount & 0xFFFFF) == 0 )
           Worker.ReportProgress( 0, "BigCount: " + BigCount.ToString() );
 
         }
 
-      ulong BigBase = BigCount * XTestArrayBase;
-      for( int Count = 0; Count < XTestArrayEulerPhi; Count++ )
+      ulong BigBase = BigCount * BaseTo13 * 17 * 19 * 23;
+      int ArrayLength = MediumXArrayForSum.Length;
+      for( int Count = 0; Count < ArrayLength; Count++ )
         {
-        ulong UX = BigBase + XTestArray[Count];
+        ulong UX = BigBase + MediumXArrayForSum[Count];
         X.SetFromULong( UX );
         if( XPlusY.ParamIsGreaterOrEq( X ))
           {
-          // Worker.ReportProgress( 0, "Tested all the X values." );
+          Worker.ReportProgress( 0, "Tested all the X values." );
           return false;
           }
 
-        XY.Copy( XPlusY );
-        IntMath.SubtractULong( XY, UX ); // Make it Y.
+        ulong Y0 = XPlusY.GetD( 0 );
+        ulong X0 = UX & 0xFFFFFFFF;
+        if( X0 > Y0 )
+          Y0 += 0x100000000;
 
-        // Y can only be mod certain things depending on what X is.
-        // So I don't need to use the big integers until some
-        // tests are done with that first.
+        ulong YDigit = (ulong)(Y0 - X0);
+        if( ((X0 * YDigit) & 0xFFFFFFFF) != XTimesY.GetD( 0 ))
+          {
+          QuickCheckCount++;
+          continue;
+          }
 
-        IntMath.MultiplyULong( XY, UX );  // Y times X is XY
-        if( XY.IsEqual( XTimesY ))
+        Y.Copy( XPlusY );
+        IntMath.SubtractULong( Y, UX ); // Make it Y.
+
+        // if( ((X0 * Y0) & 0xFFFFFFFF) != XTimesY.GetD( 0 ))
+          // continue;
+
+        IntMath.MultiplyULong( Y, UX );  // Y times X.
+        if( Y.IsEqual( XTimesY ))
           {
           Worker.ReportProgress( 0, "Found X and Y." );
+          Worker.ReportProgress( 0, "QuickCheckCount: " + QuickCheckCount.ToString( "N0" ));
           SolutionX.Copy( X );
           SolutionY.Copy( XPlusY );
           IntMath.Subtract( SolutionY, X );
@@ -1348,10 +1347,163 @@ namespace ExampleServer
     catch( Exception Except )
       {
       Worker.ReportProgress( 0, Except.Message );
-      throw( new Exception( "Exception in FindXTheHardWay()." ));
+      throw( new Exception( "Exception in FindXAndYBaseTo13()." ));
       }
     }
 
+
+
+  private bool XMakesSum( uint Sum, uint X, int Index )
+    {
+    try
+    {
+    uint Prime = IntMath.GetPrimeAt( Index );
+    uint SumModPrime = Sum % Prime;
+    uint XModPrime = X % Prime;
+    uint Y = ModArray[Index].XtoY[XModPrime];
+    if( Y == 0xFFFFFFFF )
+      return false;
+
+    if( ((XModPrime + Y) % Prime) == SumModPrime)
+      return true;
+
+    return false;
+
+    }
+    catch( Exception Except )
+      {
+      Worker.ReportProgress( 0, Except.Message );
+      throw( new Exception( "Exception in XMakesSum()." ));
+      }
+    }
+
+
+
+  private void MakeXArrayForSum( Integer XPlusY )
+    {
+    try
+    {
+    //            0   1   2   3    4    5
+    // BaseTo13 = 2 * 3 * 5 * 7 * 11 * 13;
+    uint Sum = (uint)IntMath.GetMod32( XPlusY, BaseTo13 );
+    XArrayForSum = new uint[BaseTo13];
+
+    int Last = 0;
+    for( uint X = 1; X < BaseTo13; X += 2 )
+      {
+      // TopB would never be less than 2,310 = 2 * 3 * 5 * 7 * 11.
+      // So it can get rid of values congruent to zero for those 
+      // small primes to 11.
+      if( (X % 3) == 0 )
+        continue;
+
+      if( (X % 5) == 0 )
+        continue;
+
+      if( (X % 7) == 0 )
+        continue;
+
+      if( (X % 11) == 0 )
+        continue;
+
+      bool Matched = true;
+      for( int Index = 1; Index <= 5; Index++ )
+        {
+        uint Prime = IntMath.GetPrimeAt( Index );
+        if( !XMakesSum( Sum, X, Index ))
+          {
+          Matched = false;
+          break;
+          }
+        }
+
+      if( Matched )
+        {
+        XArrayForSum[Last] = X;
+        Last++;
+        }
+      }
+
+    if( Last == 0 )
+      throw( new Exception( "XArrayForSum length is zero." ));
+
+    Worker.ReportProgress( 0, "XArrayForSum length is: " + Last.ToString() );
+    Worker.ReportProgress( 0, "BaseTo13 is: " + BaseTo13.ToString() );
+    Array.Resize( ref XArrayForSum, Last );
+
+    MakeMediumXArrayForSum( XPlusY );
+
+    }
+    catch( Exception Except )
+      {
+      Worker.ReportProgress( 0, Except.Message );
+      throw( new Exception( "Exception in MakeXArrayForSum()." ));
+      }
+    }
+
+
+
+  private void MakeMediumXArrayForSum( Integer XPlusY )
+    {
+    try
+    {
+    // Some primes:
+    // 0  1  2  3   4   5   6   7   8   9  10  11  12  13  14  15
+    // 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,
+
+    // 16  17  18  19  20  21  22  23  24   25   26   27
+    // 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107
+
+    uint Sum = (uint)IntMath.GetMod32( XPlusY, 17 * 19 * 23 );
+    MediumXArrayForSum = new uint[XArrayForSum.Length  * 17 * 19 * 23];
+
+    int Last = 0;
+    int SmallArrayLength = XArrayForSum.Length;
+
+    for( uint BaseCount = 0; BaseCount < (17 * 19 * 23); BaseCount++ )
+      {
+      uint Base = BaseCount * BaseTo13;
+      for( int Count = 0; Count < SmallArrayLength; Count++ )
+        {
+        uint X = Base + XArrayForSum[Count];
+
+        bool Matched = true;
+        for( int Index = 6; Index <= 8; Index++ )
+          {
+          uint Prime = IntMath.GetPrimeAt( Index );
+          uint XMod = X % Prime;
+
+          if( !XMakesSum( Sum, XMod, Index ))
+            {
+            Matched = false;
+            break;
+            }
+          }
+
+        if( Matched )
+          {
+          MediumXArrayForSum[Last] = X;
+          Last++;
+          }
+        }
+      }
+
+    if( Last == 0 )
+      throw( new Exception( "XArrayForSum length is zero." ));
+
+    if( Last == SmallArrayLength )
+      throw( new Exception( "MediumXArrayForSum Last == SmallArrayLength." ));
+
+    Worker.ReportProgress( 0, "MediumXArrayForSum length is: " + Last.ToString() );
+    Array.Resize( ref MediumXArrayForSum, Last );
+
+    }
+    catch( Exception Except )
+      {
+      Worker.ReportProgress( 0, Except.Message );
+      throw( new Exception( "Exception in MakeMediumXArrayForSum()." ));
+      }
+    }
 
 
 
