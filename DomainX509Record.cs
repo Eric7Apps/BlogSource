@@ -3,6 +3,64 @@
 // http://eric7apps.blogspot.com/
 
 
+/*
+
+Section 9.1.2 EME-PKCS1-v1_5
+Steps:
+
+   1. If the length of the message M is greater than emLen - 10 octets,
+   output "message too long" and stop.
+
+   2. Generate an octet string PS of length emLen-||M||-2 consisting of
+   pseudorandomly generated nonzero octets. The length of PS will be at
+   least 8 octets.
+
+   3. Concatenate PS, the message M, and other padding to form the
+   encoded message EM as:
+
+   EM = 02 || PS || 00 || M
+
+Concatenate PS, the message M, and other padding to form an
+         encoded message EM of length k octets as
+
+            EM = 0x00 || 0x02 || PS || 0x00 || M.
+
+
+
+How does that pattern work with the CRT numbers?
+
+"If the first octet of EM is not 02, or if there is no 00 octet to
+   separate PS from M, output "decoding error" and stop."
+
+
+9.2 Encoding methods for signatures.
+
+That's where that zero comes from in Android stuff:
+"version is the version number, for compatibility with future
+   revisions of this document. It shall be 0 for this version of the document."
+
+
+Section 7 of RFC 2437 Encryption Schemes.  That has to do with how the bit streams are parsed.
+
+Section 8 signature schemes.
+
+Section 9 Encoding methods.
+The message representative EM will typically have some structure that
+   can be verified by the decoding operation
+
+
+"Steps:
+   1. Apply the EME-PKCS1-v1_5 encoding operation (Section 9.1.2.1) to
+   the message M to produce an encoded message EM of length k-1 octets:"
+
+
+
+In the RFCs it says that how you get that CA's public key is "outside of the scope of this document".
+*/
+
+
+
+
 // PKCS Public Key Cryptography Standards
 // https://en.wikipedia.org/wiki/PKCS
 
@@ -208,9 +266,14 @@ namespace ExampleServer
 
   internal void ParseAndAddOneCertificateList( byte[] ToAdd )
     {
+    StatusString += "Top of parse and add.\r\n";
+
     CertificateList = ToAdd;
     if( CertificateList == null )
+      {
+      StatusString += "CertificateList == null.\r\n";
       return;
+      }
 
     if( CertificateList.Length < 7 )
       {
@@ -269,12 +332,14 @@ namespace ExampleServer
 
       StatusString += "Index after getting one certificate: " + Index.ToString() + "\r\n";
 
-      if( Index >= CertificateList.Length )
-        return;
-         
       if( !ParseOneCertificate( OneCertificate ))
         return;
 
+      if( Index >= CertificateList.Length )
+        {
+        StatusString += "Index >= CertificateList.Length: " + Index.ToString() + "\r\n";
+        return;
+        }
       }
     }
 
@@ -283,10 +348,15 @@ namespace ExampleServer
   // A certificate from a .cer file could be parsed with this too.
   internal bool ParseOneCertificate( byte[] OneCertificate )
     {
+    StatusString += "Top of ParseOneCertificate().\r\n";
+
     BitStreamRecArrayLast = 0;
 
     if( OneCertificate == null )
+      {
+      StatusString += "OneCertificate == null\r\n";
       return false;
+      }
 
     // See if it's a reasonable number.
     if( OneCertificate.Length < 10 )
@@ -677,11 +747,16 @@ namespace ExampleServer
     {
     try
     {
+    StatusString += "Top of ProcessOneTag().\r\n";
+
     if( IntMath == null )
       IntMath = new IntegerMath();
 
     if( TagsBuffer == null )
+      {
+      StatusString += "Tags buffer was null.\r\n";
       return -1;
+      }
 
     if( ObjectIDNames == null )
       ObjectIDNames = new X509ObjectIDNames();
@@ -766,7 +841,7 @@ namespace ExampleServer
         (TagVal == 18) || // Numeric String
         (TagVal == 20) || // T61 String
         (TagVal == 21) || // Videotex String
-        (TagVal == 22) || // IA5 String
+        // (TagVal == 22) || // IA5 String
         (TagVal == 23) || // UTC Time
         (TagVal == 24) || // Generalized Time
         (TagVal == 25) || // Graphic String
@@ -867,7 +942,7 @@ namespace ExampleServer
         Index++;
 
         // Make sure it has valid ASCII characters.
-        if( ContentChar > 127 )
+        if( ContentChar > 126 )
           continue;
 
         if( ContentChar < 32 ) // Space character.
@@ -890,7 +965,27 @@ namespace ExampleServer
         Index++;
 
         // Make sure it has valid ASCII characters.
-        if( ContentChar > 127 )
+        if( ContentChar > 126 ) // 127 is the ASCII DEL character.
+          continue;
+
+        if( ContentChar < 32 ) // Space character.
+          continue;
+
+        StatusString += Char.ToString( ContentChar );
+        }
+
+      StatusString += "\r\n";
+      }
+
+    if( TagVal == 22 ) // IA5 String
+      {
+      for( int Count = 0; Count < Length; Count++ )
+        {
+        char ContentChar = (char)TagsBuffer[Index];
+        Index++;
+
+        // Make sure it has valid ASCII characters.
+        if( ContentChar > 126 )
           continue;
 
         if( ContentChar < 32 ) // Space character.
