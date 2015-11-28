@@ -56,6 +56,8 @@ namespace ExampleServer
 
   internal int ProcessX509Certificates( int Index, byte[] TLSOuterRecordBuffer, int TLSOuterRecordBufferLast )
     {
+    StatusString += "Top of Certificate.\r\n";
+
     // This is a chain of certificates.
     int OriginalIndex = Index;
     StatusString += "\r\n";
@@ -67,6 +69,7 @@ namespace ExampleServer
     if( MessageType != 11 )
       {
       StatusString += "This is a bug. MessageType != 11.\r\n";
+      ShowBytesInBuffer( TLSOuterRecordBuffer, TLSOuterRecordBufferLast );
       return -1;
       }
 
@@ -85,13 +88,19 @@ namespace ExampleServer
     if( TLSOuterRecordBufferLast < (Index + Length) )
       {
       StatusString += "TLSOuterRecordBufferLast < (Index + Length). Length is: " + Length.ToString() + "\r\n";
+      ShowBytesInBuffer( TLSOuterRecordBuffer, TLSOuterRecordBufferLast );
       return -1;
       }
 
     // "Implementations MUST NOT send zero-length fragments of Handshake,
     // Alert, or ChangeCipherSpec content types."
     if( Length < 1 )
-      return -1;
+      {
+      StatusString += "The length of this message was less than one. Length is: " + Length.ToString() + "\r\n";
+      ShowBytesInBuffer( TLSOuterRecordBuffer, TLSOuterRecordBufferLast );
+      throw( new Exception( "Length less than one." ));
+      // return -1;
+      }
 
     // This MoveTo gets returned as the index for the start of the 
     // next inner message.
@@ -113,6 +122,27 @@ namespace ExampleServer
 
     StatusString += "Index after loop is: " + Index.ToString() + "\r\n";
     return -1;
+    }
+
+
+  private void ShowBytesInBuffer( byte[] Buffer, int Last )
+    {
+    StringBuilder SBuilder = new StringBuilder();
+    for( int Count = 0; Count < Last; Count++ )
+      {
+      // 127 is the DEL character to Delete something.
+      if( (Buffer[Count] >= 32) && (Buffer[Count] < 127))
+        {
+        SBuilder.Append( "ASCII: " + Char.ToString( (char)Buffer[Count] ) );
+        }
+      else
+        {
+        int ToShow = Buffer[Count];
+        SBuilder.Append( "\r\nByte: " + ToShow.ToString() + "\r\n" );
+        }
+      }
+
+    StatusString += SBuilder.ToString();
     }
 
 
