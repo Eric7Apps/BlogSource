@@ -14,9 +14,10 @@ using System.Windows.Forms;
 
 namespace ExampleServer
 {
-  public struct MakeKeysWorkerInfo
+  internal struct MakeKeysWorkerInfo
     {
-    public string Test;
+    internal CRTCombinSetupRec[] SetupArray;
+    internal string PublicKeyModulus;
     }
 
 
@@ -24,6 +25,7 @@ namespace ExampleServer
   {
   private MainForm MForm;
   private bool Cancelled = false;
+  private CRTCombinBackground[] CRTCombinBackgArray;
 
 
   private MakeRSAKeysForm()
@@ -60,6 +62,33 @@ namespace ExampleServer
       {
       ShowStatus( "Error on closing MakeKeysBackgroundWorker:\r\n" + Except.Message );
       }
+
+
+    if( CRTCombinBackgArray != null )
+      {
+      try
+      {
+      for( int Count = 0; Count < CRTCombinBackgArray.Length; Count++ )
+        {
+        if( CRTCombinBackgArray[Count] == null )
+          continue;
+
+        if( CRTCombinBackgArray[Count].IsBusy )
+          {
+          if( !CRTCombinBackgArray[Count].CancellationPending )
+            CRTCombinBackgArray[Count].CancelAsync();
+
+          }
+
+        CRTCombinBackgArray[Count].Dispose();
+        CRTCombinBackgArray[Count] = null;
+        }
+      }
+      catch( Exception Except )
+        {
+        ShowStatus( "Exception for CRTCombinBackgArray[] on closing:\r\n" + Except.Message );
+        }
+      }
     }
 
 
@@ -94,6 +123,7 @@ namespace ExampleServer
 
   private void testToolStripMenuItem_Click(object sender, EventArgs e)
     {
+    Cancelled = false;
     StartMakingKeys();
     }
 
@@ -102,7 +132,19 @@ namespace ExampleServer
   internal void StartMakingKeys()
     {
     MakeKeysWorkerInfo WInfo = new MakeKeysWorkerInfo();
-    WInfo.Test = "Nada";
+    WInfo.SetupArray = new CRTCombinSetupRec[4];
+
+    WInfo.SetupArray[0].Start = 0;
+    WInfo.SetupArray[0].End = 5;
+
+    WInfo.SetupArray[1].Start = 6;
+    WInfo.SetupArray[1].End = 7;
+
+    WInfo.SetupArray[2].Start = 8;
+    WInfo.SetupArray[2].End = 9;
+
+    WInfo.SetupArray[3].Start = 10;
+    WInfo.SetupArray[3].End = 11;
 
     try
     {
@@ -252,6 +294,110 @@ namespace ExampleServer
     ShowStatus( "Finished making keys." );
     ShowStatus( " " );
     }
+
+
+
+  private void startProcessesToolStripMenuItem_Click( object sender, EventArgs e )
+    {
+    try
+    {
+    string PubKey = "15,654,675,243,543,711,381,029";
+
+    CRTCombinBackgArray = new CRTCombinBackground[4];
+
+    MakeKeysWorkerInfo WInfo = new MakeKeysWorkerInfo();
+    WInfo.SetupArray = new CRTCombinSetupRec[3];
+    WInfo.PublicKeyModulus = PubKey;
+
+    WInfo.SetupArray[0].Start = 0;
+    WInfo.SetupArray[0].End = 5;
+
+    WInfo.SetupArray[1].Start = 6;
+    WInfo.SetupArray[1].End = 6;
+
+    WInfo.SetupArray[2].Start = 7;
+    WInfo.SetupArray[2].End = 7;
+    CRTCombinBackgArray[0] = new CRTCombinBackground( MForm, WInfo );
+    ShowStatus( "Starting background process at: 0" );
+    CRTCombinBackgArray[0].RunWorkerAsync( WInfo );
+
+
+    ////////////////
+    WInfo = new MakeKeysWorkerInfo();
+    WInfo.SetupArray = new CRTCombinSetupRec[3];
+    WInfo.PublicKeyModulus = PubKey;
+
+    WInfo.SetupArray[0].Start = 0;
+    WInfo.SetupArray[0].End = 3;
+
+    WInfo.SetupArray[1].Start = 4;
+    WInfo.SetupArray[1].End = 4;
+
+    WInfo.SetupArray[2].Start = 5;
+    WInfo.SetupArray[2].End = 5;
+
+    CRTCombinBackgArray[1] = new CRTCombinBackground( MForm, WInfo );
+    ShowStatus( "Starting background process at: 1" );
+    CRTCombinBackgArray[1].RunWorkerAsync( WInfo );
+
+
+    // Some primes:
+    // 0  1  2  3   4   5   6   7   8   9  10  11  12  13  14  15
+    // 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,
+
+    // 16  17  18  19  20  21  22  23  24   25   26   27
+    // 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107
+
+    ////////
+    WInfo = new MakeKeysWorkerInfo();
+    WInfo.SetupArray = new CRTCombinSetupRec[4];
+    WInfo.PublicKeyModulus = PubKey;
+
+    WInfo.SetupArray[0].Start = 0;
+    WInfo.SetupArray[0].End = 5;
+
+    WInfo.SetupArray[1].Start = 6;
+    WInfo.SetupArray[1].End = 6;
+
+    WInfo.SetupArray[2].Start = 7;
+    WInfo.SetupArray[2].End = 7;
+
+    WInfo.SetupArray[3].Start = 8;
+    WInfo.SetupArray[3].End = 9;
+
+    CRTCombinBackgArray[2] = new CRTCombinBackground( MForm, WInfo );
+    ShowStatus( "Starting background process at: 2" );
+    CRTCombinBackgArray[2].RunWorkerAsync( WInfo );
+
+
+    ////////
+    WInfo = new MakeKeysWorkerInfo();
+    WInfo.SetupArray = new CRTCombinSetupRec[4];
+    WInfo.PublicKeyModulus = PubKey;
+
+    WInfo.SetupArray[0].Start = 0;
+    WInfo.SetupArray[0].End = 5;
+
+    WInfo.SetupArray[1].Start = 6;
+    WInfo.SetupArray[1].End = 7;
+
+    WInfo.SetupArray[2].Start = 8;
+    WInfo.SetupArray[2].End = 9;
+
+    WInfo.SetupArray[3].Start = 10;
+    WInfo.SetupArray[3].End = 11;
+
+    CRTCombinBackgArray[3] = new CRTCombinBackground( MForm, WInfo );
+    ShowStatus( "Starting background process at: 3" );
+    CRTCombinBackgArray[3].RunWorkerAsync( WInfo );
+
+    }
+    catch( Exception Except )
+      {
+      ShowStatus( "Exception in loop for starting CRTCombinBackgArray:\r\n" + Except.Message );
+      }
+    }
+
 
 
   }
