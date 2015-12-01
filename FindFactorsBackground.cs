@@ -22,10 +22,12 @@ namespace ExampleServer
   private RNGCryptoServiceProvider RngCsp;
   private ECTime StartTime;
   private FindFactors FindFactors1;
-  private FindFactorsFromTop FindFromTop;
+  // private FindFactorsFromTop FindFromTop;
+  private CombinatoricsFromTop CombinatoricsTop;
+  private CRTCombinSetupRec[] SetupArray;
 
-  private const int PrimeIndex = 0; // Approximmately 32-bit primes.
-  // private const int PrimeIndex = 1; // Approximmately 64-bit primes.
+  // private const int PrimeIndex = 0; // Approximmately 32-bit primes.
+  private const int PrimeIndex = 1; // Approximmately 64-bit primes.
   // private const int PrimeIndex = 2; // Approximmately 96-bit primes.
   // private const int PrimeIndex = 3; // Approximmately 128-bit primes.
   // private const int PrimeIndex = 7; // Approximmately 256-bit primes.
@@ -46,6 +48,7 @@ namespace ExampleServer
     {
     Worker = UseWorker;
     WInfo = UseWInfo;
+    SetupArray = WInfo.SetupArray;
 
     StartTime = new ECTime();
     StartTime.SetToNow();
@@ -56,7 +59,8 @@ namespace ExampleServer
     Quotient = new Integer();
     Remainder = new Integer();
     FindFactors1 = new FindFactors( Worker, IntMath );
-    FindFromTop = new FindFactorsFromTop( Worker, IntMath );
+    // FindFromTop = new FindFactorsFromTop( Worker, IntMath );
+    CombinatoricsTop = new CombinatoricsFromTop( SetupArray, Worker, IntMath );
     }
 
 
@@ -76,6 +80,8 @@ namespace ExampleServer
     {
     try
     {
+    Worker.ReportProgress( 0, "Making a prime..." );
+
     int Attempts = 0;
     while( true )
       {
@@ -100,9 +106,12 @@ namespace ExampleServer
         }
 
 
+
       // When testing with small numbers, make them a little smaller.
       // If the index is 1, then a mask of 0xF makes it 32 + 4 bits.
-      ulong MaskTop = Result.GetD( SetToIndex ) & 0xFFFFFFF;
+      // 0xFFF is 32 + 12 bits.
+      // 0xFFFF is 32 + 16 bits.  48.  So 96 bit modulus.
+      ulong MaskTop = Result.GetD( SetToIndex ) & 0x3F;
       if( MaskTop != 0 )
         Result.SetD( SetToIndex, MaskTop );
       else
@@ -209,42 +218,49 @@ namespace ExampleServer
 
       Thread.Sleep( 1 ); // Give up the time slice.  Let other things on the server run.
 
-      // Make two prime factors.
-      // Normally you'd only make new primes when you pay the Certificate
-      // Authority for a new certificate.  So it happens once a year or once
-      // every three years.
-      if( !MakeAPrime( PrimeP, PrimeIndex, 20 ))
-        return;
+      if( WInfo.PublicKeyModulus == null )
+        {
+        // Make two prime factors.
+        // Normally you'd only make new primes when you pay the Certificate
+        // Authority for a new certificate.  So it happens once a year or once
+        // every three years.
+        if( !MakeAPrime( PrimeP, PrimeIndex, 20 ))
+          return;
 
-      if( Worker.CancellationPending )
-        return;
+        if( Worker.CancellationPending )
+          return;
 
-      if( !MakeAPrime( PrimeQ, PrimeIndex, 20 ))
-        return;
+        if( !MakeAPrime( PrimeQ, PrimeIndex, 20 ))
+          return;
 
-      if( Worker.CancellationPending )
-        return;
+        if( Worker.CancellationPending )
+          return;
 
-      Worker.ReportProgress( 0, "The Index of Prime P is: " + PrimeP.GetIndex().ToString() );
-      Worker.ReportProgress( 0, "Prime P:" );
-      Worker.ReportProgress( 0, IntMath.ToString10( PrimeP ));
+        Worker.ReportProgress( 0, "The Index of Prime P is: " + PrimeP.GetIndex().ToString() );
+        Worker.ReportProgress( 0, "Prime P:" );
+        Worker.ReportProgress( 0, IntMath.ToString10( PrimeP ));
+        Worker.ReportProgress( 0, " " );
+        Worker.ReportProgress( 0, "Prime Q:" );
+        Worker.ReportProgress( 0, IntMath.ToString10( PrimeQ ));
+        Worker.ReportProgress( 0, " " );
+
+        PubKeyN.Copy( PrimeP );
+        IntMath.Multiply( PubKeyN, PrimeQ );
+        }
+      else
+        {
+        IntMath.SetFromString( PubKeyN, WInfo.PublicKeyModulus );
+        }
+
       Worker.ReportProgress( 0, " " );
-      Worker.ReportProgress( 0, "Prime Q:" );
-      Worker.ReportProgress( 0, IntMath.ToString10( PrimeQ ));
-      Worker.ReportProgress( 0, " " );
-
-      PubKeyN.Copy( PrimeP );
-      IntMath.Multiply( PubKeyN, PrimeQ );
-
-      Worker.ReportProgress( 0, " " );
-      Worker.ReportProgress( 0, "PubKeyN:" );
-      Worker.ReportProgress( 0, IntMath.ToString10( PubKeyN ));
-      Worker.ReportProgress( 0, " " );
-
-      Worker.ReportProgress( 0, " " );
+      Worker.ReportProgress( 0, "PubKeyN:" + IntMath.ToString10( PubKeyN ));
       Integer P = new Integer();
       Integer Q = new Integer();
-      FindFromTop.FindTwoFactors( PubKeyN, P, Q );
+      
+      // FindFromTop.FindTwoFactors( PubKeyN, P, Q );
+      CombinatoricsTop.FindTwoFactors( PubKeyN, P, Q );
+
+      // FindFactors1.FindTwoFactorsWithFermat( PubKeyN, P, Q, 0 );
 
       // FindFactors1.FindAllFactors( PubKeyN );
       // FindFactors1.ShowAllFactors();
@@ -252,7 +268,7 @@ namespace ExampleServer
 
       Thread.Sleep( 2000 );
 
-      // return; // Comment this out to just leave it while( true ) for testing.
+      return; // Comment this out to just leave it while( true ) for testing.
       }
     }
 
