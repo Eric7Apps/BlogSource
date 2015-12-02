@@ -41,7 +41,7 @@ namespace ExampleServer
   private Integer LastAccumulateValue;
   // private Integer TestAccumulate;
   private CRTCombinSetupRec[] SetupArray;
-
+  private uint ModMask = 0;
 
 
   internal struct CRTArrayRec
@@ -50,6 +50,7 @@ namespace ExampleServer
     internal uint[] XPlusYDigits;
     internal int DigitsIndex;
     internal Integer BigBase;
+    internal uint BigBaseBottomDigit;
     internal uint BigBaseModCurrentBase;
     internal uint[,] MatchingInverseArray;
     }
@@ -75,10 +76,12 @@ namespace ExampleServer
     }
 
 
-  internal CRTCombinatorics( CRTCombinSetupRec[] UseSetupArray, BackgroundWorker UseWorker, IntegerMath UseIntMath )
+  internal CRTCombinatorics( uint UseModMask, CRTCombinSetupRec[] UseSetupArray, BackgroundWorker UseWorker, IntegerMath UseIntMath )
     {
     SetupArray = UseSetupArray;
     Worker = UseWorker;
+    ModMask = UseModMask;
+
     IntMath = UseIntMath;
     Quotient = new Integer();
     Remainder = new Integer();
@@ -151,6 +154,19 @@ namespace ExampleServer
       }
 
     Array.Resize( ref NoDupArray, Last );
+
+
+    if( Index == 0 )
+      {
+      if( ModMask != 0xFFFFFFFF )
+        {
+        Worker.ReportProgress( 0, "Before 3 out of 4 length: " + NoDupArray.Length.ToString());
+        NoDupArray = Utility.RemoveThreeOutOfFourFromUIntArray( NoDupArray, ModMask );
+        Worker.ReportProgress( 0, "After 3 out of 4 length: " + NoDupArray.Length.ToString());
+        }
+      }
+
+
     Utility.SortUintArray( ref NoDupArray );
     Rec.XPlusYDigits = NoDupArray;
     Rec.DigitsIndex = 0;
@@ -207,6 +223,7 @@ namespace ExampleServer
         return IncrementCRTDigits();
         }
 
+      // uint Test = GetIncrementAccumulateBits( CRTArray[Index] );
       uint Test = GetIncrementAccumulateBits();
       if( IsInBitsTestArray( Test ))
         return true;
@@ -225,16 +242,18 @@ namespace ExampleServer
 
 
 
-  private uint GetIncrementAccumulateBits()
+  /*
+  Slower.
+  private uint GetIncrementAccumulateBits( CRTArrayRec Rec )
     {
-    int Index = CRTArray.Length - 1;
-    // CRTArrayRec Rec = CRTArray[Index];
+    // int Index = CRTArray.Length - 1;
 
-    uint CurrentBase = CRTArray[Index].Base;
+    uint CurrentBase = Rec.Base;
     uint AccumulateDigit = (uint)IntMath.GetMod32( LastAccumulateValue, CurrentBase );
-    int DigitsIndex = CRTArray[Index].DigitsIndex;
-    uint CountB = CRTArray[Index].MatchingInverseArray[DigitsIndex, AccumulateDigit];
-    uint BasePart = (uint)CRTArray[Index].BigBase.GetD( 0 );
+    int DigitsIndex = Rec.DigitsIndex;
+    uint CountB = Rec.MatchingInverseArray[DigitsIndex, AccumulateDigit];
+    uint BasePart = Rec.BigBaseBottomDigit;
+    // uint BasePart = (uint)CRTArray[Index].BigBase.GetD( 0 );
     ulong AccumBits = checked( (ulong)BasePart * (ulong)CountB );
 
     // This is not the same thing as AccumulateDigit:
@@ -242,6 +261,27 @@ namespace ExampleServer
     AccumBits = AccumBits & 0xFFFFFFFF;
     return (uint)AccumBits;
     }
+    */
+
+
+
+
+  private uint GetIncrementAccumulateBits()
+    {
+    int Index = CRTArray.Length - 1;
+    uint CurrentBase = CRTArray[Index].Base;
+    uint AccumulateDigit = (uint)IntMath.GetMod32( LastAccumulateValue, CurrentBase );
+    int DigitsIndex = CRTArray[Index].DigitsIndex;
+    uint CountB = CRTArray[Index].MatchingInverseArray[DigitsIndex, AccumulateDigit];
+    uint BasePart = CRTArray[Index].BigBaseBottomDigit;
+    ulong AccumBits = (ulong)BasePart * (ulong)CountB;
+
+    // This is not the same thing as AccumulateDigit:
+    AccumBits += LastAccumulateValue.GetD( 0 );
+    AccumBits = AccumBits & 0xFFFFFFFF;
+    return (uint)AccumBits;
+    }
+
 
 
 
@@ -977,6 +1017,7 @@ namespace ExampleServer
 
       CRTArray[Count].BigBase = new Integer();
       CRTArray[Count].BigBase.Copy( BigBase );
+      CRTArray[Count].BigBaseBottomDigit = (uint)BigBase.GetD( 0 );
       CRTArray[Count].BigBaseModCurrentBase = (uint)IntMath.GetMod32( CRTArray[Count].BigBase, CRTArray[Count].Base );
 
       // Multiply it by the current base for the next loop.
