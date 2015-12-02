@@ -30,7 +30,7 @@ namespace ExampleServer
 {
   public partial class MainForm : Form
   {
-  internal const string VersionDate = "11/7/2015";
+  internal const string VersionDate = "12/2/2015";
   internal const int VersionNumber = 09; // 0.9
   internal const string MessageBoxTitle = "Eric's Example Server";
   private System.Threading.Mutex SingleInstanceMutex = null;
@@ -526,7 +526,8 @@ namespace ExampleServer
     ReadWebFileData();
     ShowStatus( "Finished reading web files." );
 
-    X509Data.ImportFromOriginalListFile();
+    X509Data.ReadFromTextFile();
+    // X509Data.ImportFromOriginalListFile();
     ShowStatus( "Finished reading X509 data list." );
 
     WebListenForm.StartServer();
@@ -633,6 +634,25 @@ namespace ExampleServer
     LowExponentForm.WindowState = FormWindowState.Normal;
     LowExponentForm.BringToFront();
     }
+
+
+
+  internal void FoundSolutionShutDown( string ProcessName,
+                                       string SolutionP,
+                                       string SolutionQ )
+    {
+    if( IsClosing )
+      return;
+
+    if( MakeKeysForm == null )
+      return;
+
+    if( MakeKeysForm.IsDisposed )
+      return;
+
+    MakeKeysForm.FoundSolutionShutDown( ProcessName, SolutionP, SolutionQ );
+    }
+
 
 
   }
