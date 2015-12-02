@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-// using System.Threading; // For Sleep().
+using System.Threading; // For Sleep().
 using System.ComponentModel; // BackgroundWorker
 
 
@@ -43,14 +43,13 @@ namespace ExampleServer
   private CRTCombinSetupRec[] SetupArray;
 
 
-
   private CombinatoricsFromTop()
     {
     }
 
 
 
-  internal CombinatoricsFromTop( CRTCombinSetupRec[] UseSetupArray, BackgroundWorker UseWorker, IntegerMath UseIntMath )
+  internal CombinatoricsFromTop( uint ModMask, CRTCombinSetupRec[] UseSetupArray, BackgroundWorker UseWorker, IntegerMath UseIntMath )
     {
     SetupArray = UseSetupArray;
 
@@ -74,7 +73,7 @@ namespace ExampleServer
     SolutionY = new Integer();
     ProductModTopBQuotient = new Integer();
     LeftQuotient = new Integer();
-    CRTCombin = new CRTCombinatorics( SetupArray, Worker, IntMath );
+    CRTCombin = new CRTCombinatorics( ModMask, SetupArray, Worker, IntMath );
 
     SetupBaseArray();
     }
@@ -128,7 +127,11 @@ namespace ExampleServer
     SetTopFactorForStart();
     FindTheFactors();
     if( !SolutionX.IsZero())
+      {
+      P.Copy( SolutionX );
+      Q.Copy( SolutionY );
       return true;
+      }
 
     while( true )
       {
@@ -142,8 +145,11 @@ namespace ExampleServer
 
       FindTheFactors();
       if( !SolutionX.IsZero())
+        {
+        P.Copy( SolutionX );
+        Q.Copy( SolutionY );
         return true;
-
+        }
       }
 
     return false;
@@ -192,8 +198,8 @@ namespace ExampleServer
 
     if( TopBIndex <= 4 ) // If it doesn't have any factors.
       {
-      Worker.ReportProgress( 0, "TopBIndex got too small." );
-      // throw( new Exception( "TopBIndex got too small." ));
+      // Worker.ReportProgress( 0, "TopBIndex got too small." );
+      throw( new Exception( "TopBIndex got too small." ));
       return false;
       }
     if( MaximumSmallFactor.ParamIsGreater( TopB ))
@@ -279,7 +285,7 @@ namespace ExampleServer
     uint SmallPrime = IntMath.IsDivisibleBySmallPrime( Left );
     if( SmallPrime != 0 )
       {
-      Worker.ReportProgress( 0, "Left is divisible by: " + SmallPrime.ToString() );
+      // Worker.ReportProgress( 0, "Left is divisible by: " + SmallPrime.ToString() );
       // Left is divisible by: 59
       // Left is divisible by: 4297
       // Left = P - BB.
@@ -377,7 +383,7 @@ namespace ExampleServer
 
     IntMath.Subtract( MaximumX, TopB );
 
-    Worker.ReportProgress( 0, "MaximumSmallFactor: " + MaximumSmallFactor.GetAsHexString());
+    // Worker.ReportProgress( 0, "MaximumSmallFactor: " + MaximumSmallFactor.GetAsHexString());
     Worker.ReportProgress( 0, "MinimumX: " + MinimumX.GetAsHexString());
     Worker.ReportProgress( 0, "MaximumX: " + MaximumX.GetAsHexString());
 
@@ -424,10 +430,6 @@ namespace ExampleServer
       // Worker.ReportProgress( 0, "MaximumY was lowered: " + MaximumY.GetAsHexString());
       // So MinimumX has to be raised.
       }
-    else
-      {
-      Worker.ReportProgress( 0, "MaximumY was not lowered." );
-      }
 
     FactorX.Copy( TopB );
     FactorX.Add( MaximumX );
@@ -436,7 +438,7 @@ namespace ExampleServer
     if( MinimumY.ParamIsGreater( TopB ))
       throw( new Exception( "Bug. TopB is bigger than MinimumY." ));
 
-    Worker.ReportProgress( 0, "MaximumY test 4." );
+    // Worker.ReportProgress( 0, "MaximumY test 4." );
 
     IntMath.Subtract( MinimumY, TopB );
     Worker.ReportProgress( 0, "MinimumY: " + MinimumY.GetAsHexString());
@@ -487,9 +489,17 @@ namespace ExampleServer
     while( true )
       {
       Loops++;
-      if( (Loops & 0xFFFFFF) == 0 )
+      if( (Loops & 0x3FFFFF) == 0 )
         {
         Worker.ReportProgress( 0, "Loops: " + Loops.ToString( "N0" ) );
+        }
+
+      // Use Task Manager to tweak CPU Utilization with this bit mask.
+      if( (Loops & 0xFFFF) == 0 )
+        {
+        // Allow me to use my computer while this is being tested in
+        // the background.
+        Thread.Sleep( 1 ); // This is on one of the (four) separate threads.
         }
 
       if( Worker.CancellationPending )
@@ -503,6 +513,9 @@ namespace ExampleServer
 
       if( !CRTCombin.IsInBitsTestArray( (uint)XPlusY.GetD( 0 ) ))
         {
+        // The increments like this are by far the biggest user of time in this loop.
+        // The Visual Studio profiler shows the "hot path" to be
+        // IncrementCRTDigitsWithBitMask().
         if( !CRTCombin.IncrementCRTDigitsWithBitMask())
           {
           Worker.ReportProgress( 0, "CRTCombin incremented to the end." );
