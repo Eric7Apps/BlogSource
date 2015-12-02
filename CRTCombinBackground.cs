@@ -15,7 +15,9 @@ namespace ExampleServer
   class CRTCombinBackground : BackgroundWorker
   {
   private MainForm MForm;
-
+  private string SolutionP = "";
+  private string SolutionQ = "";
+  private string ProcessName = "No Name";
 
 
   private CRTCombinBackground()
@@ -33,6 +35,8 @@ namespace ExampleServer
 
     WorkerReportsProgress = true;
     WorkerSupportsCancellation = true;
+
+    ProcessName = WInfo.ProcessName;
     }
 
 
@@ -62,6 +66,10 @@ namespace ExampleServer
 
     FindFactorsBackground FindFac = new FindFactorsBackground( Worker, WInfo );
     FindFac.FindFactors();
+
+    SolutionP = FindFac.GetSolutionPString();
+    SolutionQ = FindFac.GetSolutionQString();
+
     FindFac.FreeEverything();
 
     if( Worker.CancellationPending )
@@ -99,7 +107,11 @@ namespace ExampleServer
 
     // if( e.ProgressPercentage > 0 )
 
-    MForm.ShowMakeKeysFormStatus( CheckStatus );
+    if( CheckStatus.Trim().Length < 1 )
+      MForm.ShowMakeKeysFormStatus( CheckStatus );
+    else
+      MForm.ShowMakeKeysFormStatus( ProcessName + ") " + CheckStatus );
+
     }
 
 
@@ -120,6 +132,13 @@ namespace ExampleServer
 
     MForm.ShowMakeKeysFormStatus( " " );
     MForm.ShowMakeKeysFormStatus( "Finished Background process." );
+    MForm.ShowMakeKeysFormStatus( "SolutionP: " + SolutionP );
+
+    // The string is either "", or it's "0", or it's a real solution.
+    if( SolutionP.Length > 1 )
+      {
+      MForm.FoundSolutionShutDown( ProcessName, SolutionP, SolutionQ );
+      }
     }
 
 
