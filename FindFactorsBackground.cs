@@ -17,6 +17,8 @@ namespace ExampleServer
   private IntegerMath IntMath;
   private Integer Quotient;
   private Integer Remainder;
+  private Integer SolutionP;
+  private Integer SolutionQ;
   private BackgroundWorker Worker;
   private MakeKeysWorkerInfo WInfo;
   private RNGCryptoServiceProvider RngCsp;
@@ -25,6 +27,7 @@ namespace ExampleServer
   // private FindFactorsFromTop FindFromTop;
   private CombinatoricsFromTop CombinatoricsTop;
   private CRTCombinSetupRec[] SetupArray;
+  private string ProcessName = "No Name";
 
   // private const int PrimeIndex = 0; // Approximmately 32-bit primes.
   private const int PrimeIndex = 1; // Approximmately 64-bit primes.
@@ -49,6 +52,10 @@ namespace ExampleServer
     Worker = UseWorker;
     WInfo = UseWInfo;
     SetupArray = WInfo.SetupArray;
+    ProcessName = WInfo.ProcessName;
+
+    SolutionP = new Integer();
+    SolutionQ = new Integer();
 
     StartTime = new ECTime();
     StartTime.SetToNow();
@@ -60,7 +67,7 @@ namespace ExampleServer
     Remainder = new Integer();
     FindFactors1 = new FindFactors( Worker, IntMath );
     // FindFromTop = new FindFactorsFromTop( Worker, IntMath );
-    CombinatoricsTop = new CombinatoricsFromTop( SetupArray, Worker, IntMath );
+    CombinatoricsTop = new CombinatoricsFromTop( WInfo.ModMask, SetupArray, Worker, IntMath );
     }
 
 
@@ -111,7 +118,7 @@ namespace ExampleServer
       // If the index is 1, then a mask of 0xF makes it 32 + 4 bits.
       // 0xFFF is 32 + 12 bits.
       // 0xFFFF is 32 + 16 bits.  48.  So 96 bit modulus.
-      ulong MaskTop = Result.GetD( SetToIndex ) & 0x3F;
+      ulong MaskTop = Result.GetD( SetToIndex ) & 0x3FFF;
       if( MaskTop != 0 )
         Result.SetD( SetToIndex, MaskTop );
       else
@@ -194,6 +201,27 @@ namespace ExampleServer
     }
 
 
+  /*
+  internal Integer GetSolutionP()
+    {
+    Integer Result = new Integer();
+    Result.Copy( SolutionP );
+    return Result;
+    }
+    */
+
+
+  internal string GetSolutionQString()
+    {
+    return IntMath.ToString10( SolutionQ );
+    }
+
+
+  internal string GetSolutionPString()
+    {
+    return IntMath.ToString10( SolutionP );
+    }
+
 
 
   internal void FindFactors()
@@ -259,6 +287,9 @@ namespace ExampleServer
       
       // FindFromTop.FindTwoFactors( PubKeyN, P, Q );
       CombinatoricsTop.FindTwoFactors( PubKeyN, P, Q );
+      SolutionP.Copy( P );
+      SolutionQ.Copy( Q );
+      Worker.ReportProgress( 0, "After FindTwoFactors, SolutionP is:" + IntMath.ToString10( SolutionP ));
 
       // FindFactors1.FindTwoFactorsWithFermat( PubKeyN, P, Q, 0 );
 
