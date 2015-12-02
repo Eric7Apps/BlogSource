@@ -197,13 +197,71 @@ namespace ExampleServer
     }
 
 
-
+  /*
   internal static ulong[] MakeULongArrayFromUIntArray( uint[] ToCopy )
     {
     ulong[] Result = new ulong[ToCopy.Length];
     for( int Count = 0; Count < ToCopy.Length; Count++ )
       Result[Count] = ToCopy[Count];
 
+    return Result;
+    }
+    */
+
+
+
+  internal static uint[] MakeNoDuplicatesUIntArray( uint[] InArray )
+    {
+    // The InArray is expected to have values in it that are much
+    // less than 0xFFFFFFFF.
+    int InArrayLength = InArray.Length;
+    uint[] Result = new uint[InArrayLength];
+    for( uint CountStart = 0; CountStart < InArrayLength; CountStart++ )
+      Result[CountStart] = InArray[CountStart];
+
+    for( uint CountStart = 0; CountStart < InArrayLength; CountStart++ )
+      {
+      if( Result[CountStart] == 0xFFFFFFFF )
+        continue;
+
+      for( uint CountTest = CountStart + 1; CountTest < InArrayLength; CountTest++ )
+        {
+        if( Result[CountStart] == Result[CountTest] )
+          Result[CountTest] = 0xFFFFFFFF;
+
+        }
+      }
+
+    int MoveTo = 0;
+    for( uint CountTest = 0; CountTest < InArrayLength; CountTest++ )
+      {
+      if( Result[CountTest] != 0xFFFFFFFF )
+        {
+        Result[MoveTo] = Result[CountTest];
+        MoveTo++;
+        }
+      }
+
+    Array.Resize( ref Result, MoveTo );
+    return Result;
+    }
+
+
+
+  internal static uint[] RemoveThreeOutOfFourFromUIntArray( uint[] ToCopy, uint ModMask )
+    {
+    uint[] Result = new uint[ToCopy.Length];
+    int Last = 0;
+    for( int Count = 0; Count < ToCopy.Length; Count++ )
+      {
+      if( (Count & 0x3) == ModMask )
+        {
+        Result[Last] = ToCopy[Count];
+        Last++;
+        }
+      }
+
+    Array.Resize( ref Result, Last );
     return Result;
     }
 
