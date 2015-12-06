@@ -1,0 +1,100 @@
+buildscript {
+    repositories {
+    // url "http://yoururl.com"
+    // url "../localdirectory"
+    jcenter()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:1.1.3'
+    }
+}
+// Notice that ended the Buildscript part.
+
+
+
+// Check this out for the basics:
+// https://spring.io/guides/gs/gradle-android/
+
+// Pay 25 dollars using Google Payments and register for a
+// developer account to put apps on Google Play.
+// http://developer.android.com/distribute/googleplay/start.html
+
+// The path for source code is like:
+// src/main/com/blogspot/eric7apps/
+// src/main/res/drawable/
+
+// http://google.github.io/android-gradle-dsl/current/
+// http://developer.android.com/tools/building/plugin-for-gradle.html
+// http://developer.android.com/tools/publishing/app-signing.html
+// http://developer.android.com/tools/help/proguard.html
+// http://developer.android.com/tools/publishing/app-signing.html
+// http://developer.android.com/tools/building/configuring-gradle.html
+
+
+
+apply plugin: 'com.android.application'
+
+// Now configure the Android plug in.
+android {
+    compileSdkVersion 22
+    buildToolsVersion "22.0.1"
+
+    // Override what's in the AndroidManifest.xml file.
+    // defaultConfig {
+    //        applicationId "com.example.my.app"
+    //        minSdkVersion 15
+    //        targetSdkVersion 19
+    //        versionCode 1
+    //        versionName "1.0"
+    //    }
+
+
+    // Apparently there's a bug in lint that says it can't find the files.
+    lintOptions {
+        abortOnError false
+        }
+
+
+    // signingConfigs {
+    // release {
+    //    storeFile file(System.console().readLine("\n\$ Enter keystore path: "))
+    //    storePassword new String(System.console().readPassword("\n\$ E
+
+    // Compare these with the MakeKeys.bat file for the alias and file name, etc.
+    signingConfigs {
+        release {
+                storeFile file("keystore.data")
+                storePassword "the password"
+                keyAlias "Basics"
+                keyPassword "the password"
+                }
+            }
+
+    buildTypes {
+      release {
+              // minifyEnabled true
+              // proguardFiles getDefaultProguardFile('proguard-project.txt'), 'proguard-rules.pro'
+              // proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-project.txt'
+              signingConfig signingConfigs.release
+              }
+
+        // debug {
+        //        debuggable true
+        //      }
+        }
+
+    // productFlavors {
+    //        pro {
+    //            applicationId = "com.example.my.pkg.pro"
+    //        }
+    //        free {
+    //            applicationId = "com.example.my.pkg.free"
+    //        }
+    //    }
+
+
+
+
+}
+
