@@ -30,7 +30,7 @@ namespace ExampleServer
 {
   public partial class MainForm : Form
   {
-  internal const string VersionDate = "12/2/2015";
+  internal const string VersionDate = "12/8/2015";
   internal const int VersionNumber = 09; // 0.9
   internal const string MessageBoxTitle = "Eric's Example Server";
   private System.Threading.Mutex SingleInstanceMutex = null;
@@ -50,6 +50,8 @@ namespace ExampleServer
   internal DomainX509Data X509Data;
   private RNGCryptoServiceProvider CryptoRand;
   private MakeRSAKeysForm MakeKeysForm;
+  private QuadResSearchForm QuadResForm;
+
   private LowExponentSecurityForm LowExponentForm;
   private bool Cancelled = false;
 
@@ -84,6 +86,8 @@ namespace ExampleServer
     TLSListenForm = new TLSListenerForm( this );
     CustomerMsgForm = new CustomerMessageForm( this );
     MakeKeysForm = new MakeRSAKeysForm( this );
+    QuadResForm = new QuadResSearchForm( this );
+
     LowExponentForm = new LowExponentSecurityForm( this );
 
     CheckTimer.Interval = 5 * 60 * 1000;
@@ -347,6 +351,21 @@ namespace ExampleServer
       MakeKeysForm = null;
       }
 
+    if( QuadResForm != null )
+      {
+      if( !QuadResForm.IsDisposed )
+        {
+        QuadResForm.Hide();
+
+        // This could take a while:
+        QuadResForm.FreeEverything();
+        QuadResForm.Dispose();
+        }
+
+      QuadResForm = null;
+      }
+
+
     if( LowExponentForm != null )
       {
       if( !LowExponentForm.IsDisposed )
@@ -480,6 +499,23 @@ namespace ExampleServer
 
     MakeKeysForm.ShowStatus( Status ); 
     }
+
+
+
+  internal void ShowQuadResFormStatus( string Status )
+    {
+    if( IsClosing )
+      return;
+
+    if( QuadResForm == null )
+      return;
+
+    if( QuadResForm.IsDisposed )
+      return;
+
+    QuadResForm.ShowStatus( Status ); 
+    }
+
 
 
   internal void ShowTLSListenerFormStatus( string Status )
@@ -653,6 +689,38 @@ namespace ExampleServer
     MakeKeysForm.FoundSolutionShutDown( ProcessName, SolutionP, SolutionQ );
     }
 
+
+
+  private void showQuadResToolStripMenuItem_Click( object sender, EventArgs e )
+    {
+    if( QuadResForm == null )
+      return;
+
+    if( QuadResForm.IsDisposed )
+      return;
+
+    QuadResForm.Show();
+    QuadResForm.WindowState = FormWindowState.Normal;
+    QuadResForm.BringToFront();
+    }
+
+
+
+  internal void FoundSolutionShutDownQuadRes( string ProcessName,
+                                       string SolutionP,
+                                       string SolutionQ )
+    {
+    if( IsClosing )
+      return;
+
+    if( QuadResForm == null )
+      return;
+
+    if( QuadResForm.IsDisposed )
+      return;
+
+    QuadResForm.FoundSolutionShutDown( ProcessName, SolutionP, SolutionQ );
+    }
 
 
   }
