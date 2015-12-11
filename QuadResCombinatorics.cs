@@ -23,7 +23,10 @@ namespace ExampleServer
   private Integer SolutionP;
   private Integer SolutionQ;
   private Integer LastAccumulateValue;
+  private uint LastAccumulateDigit = 0;
+  private uint LastAccumulateBottomDigit = 0;
   private Integer GetValueBasePart;
+  private Integer ToDivideMod32;
   private BackgroundWorker Worker;
   private QuadResWorkerInfo WInfo;
   private QuadResDigitsRec[] QuadResDigitsArray;
@@ -32,6 +35,9 @@ namespace ExampleServer
   private const int QuadResToPrimesArrayLength = 200;
   private int LastIncrementIndex = 0;
   private ECTime StartTime;
+  private const uint GoodXBitsMask = 0xFF;
+  private const uint GoodXBitsModulus = 0x100;
+  private bool[] GoodXBitsArray;
 
 
 
@@ -52,6 +58,7 @@ namespace ExampleServer
     internal uint BigBaseBottomDigit;
     internal uint BigBaseModCurrentBase;
     internal uint[,] MatchingInverseArray;
+    internal uint[] ZeroBForAccumArray;
     }
 
 
@@ -71,6 +78,7 @@ namespace ExampleServer
     Product = new Integer();
     SolutionP = new Integer();
     SolutionQ = new Integer();
+    ToDivideMod32 = new Integer();
     LastAccumulateValue = new Integer();
     GetValueBasePart = new Integer();
     StartTime = new ECTime();
@@ -133,6 +141,15 @@ namespace ExampleServer
         Rec.QuadRes[Test] = true;
         }
 
+      // P + x^2 = y^2
+      // P + x^2 mod 3 = y^2 mod 3
+
+      // P = y^2 - x^2
+      // P mod 3 = y^2 - x^2 mod 3
+
+      // Are there two GoodX values that make the same square?
+      // There are two y values that make the same square.
+
       for( uint X = 0; X < Prime; X++ )
         {
         uint Test = checked( X * X );
@@ -160,13 +177,65 @@ namespace ExampleServer
 
 
 
+  private uint GetMod32( Integer ToDivideOriginal, uint DivideByU )
+    {
+    if( ToDivideOriginal.IsULong())
+      {
+      ulong Result = ToDivideOriginal.GetAsULong();
+      return (uint)(Result % DivideByU);
+      }
+
+    ToDivideMod32.Copy( ToDivideOriginal );
+    ulong RemainderU = 0;
+
+    if( DivideByU <= ToDivideMod32.GetD( ToDivideMod32.GetIndex() ))
+      {
+      ulong OneDigit = ToDivideMod32.GetD( ToDivideMod32.GetIndex() );
+      RemainderU = OneDigit % DivideByU;
+      ToDivideMod32.SetD( ToDivideMod32.GetIndex(), RemainderU );
+      }
+ 
+    for( int Count = ToDivideMod32.GetIndex(); Count >= 1; Count-- )
+      {
+      ulong TwoDigits = ToDivideMod32.GetD( Count );
+      TwoDigits <<= 32;
+      TwoDigits |= ToDivideMod32.GetD( Count - 1 );
+      RemainderU = TwoDigits % DivideByU;
+      ToDivideMod32.SetD( Count, 0 );
+      ToDivideMod32.SetD( Count - 1, RemainderU );
+      }
+
+    return (uint)RemainderU;
+    }
+
+
+
+
   private bool IsGoodXForAllPrimes( Integer X )
     {
+    //  66   67   68   69   70   71   72   73   74   75   76   77
+    // 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397,
+    uint TestQuick = 389 * 397;
+    uint Test = GetMod32( X, TestQuick );
+    if( !QuadResToPrimesArray[76].GoodX[Test % 389] )
+        return false;
+
+    if( !QuadResToPrimesArray[77].GoodX[Test % 397] )
+        return false;
+
+    TestQuick = 379 * 383;
+    Test = GetMod32( X, TestQuick );
+    if( !QuadResToPrimesArray[74].GoodX[Test % 379] )
+        return false;
+
+    if( !QuadResToPrimesArray[75].GoodX[Test % 383] )
+        return false;
+
     int Start = QuadResToPrimesArrayLength - 1;
     for( int Count = Start; Count >= 0; Count-- )
       {
       uint Prime = IntMath.GetPrimeAt( Count );
-      uint Test = (uint)IntMath.GetMod32( X, Prime );
+      Test = GetMod32( X, Prime );
       if( !QuadResToPrimesArray[Count].GoodX[Test] )
         return false;
 
@@ -226,10 +295,6 @@ namespace ExampleServer
           IsInArray = false;
           break;
           }
-
-        if( !IsInArray )
-          break;
-
         }
 
       if( IsInArray )
@@ -247,6 +312,8 @@ namespace ExampleServer
       if( WInfo.ModMask != 0xFFFFFFFF )
         {
         Worker.ReportProgress( 0, "Before 3 out of 4 length: " + Rec.DigitsArray.Length.ToString());
+        // This removes them by their index in the array, and takes every
+        // fourth value in order.
         Rec.DigitsArray = Utility.RemoveThreeOutOfFourFromUIntArray( Rec.DigitsArray, WInfo.ModMask );
         Worker.ReportProgress( 0, "After 3 out of 4 length: " + Rec.DigitsArray.Length.ToString());
         }
@@ -275,9 +342,9 @@ namespace ExampleServer
       return false;
 
     MakeQuadResDigitsArrayRec( 0, 0, 7 );
-    MakeQuadResDigitsArrayRec( 1, 8, 9 );
-    MakeQuadResDigitsArrayRec( 2, 10, 11 );
-    MakeQuadResDigitsArrayRec( 3, 12, 12 );
+    MakeQuadResDigitsArrayRec( 1, 8, 8 );
+    MakeQuadResDigitsArrayRec( 2, 9, 10 );
+    MakeQuadResDigitsArrayRec( 3, 11, 12 );
     if( Worker.CancellationPending )
       return false;
 
@@ -294,6 +361,8 @@ namespace ExampleServer
     Integer SqrRoot = new Integer();
     Integer YSquared = new Integer();
 
+    MakeGoodXBitsArray();
+
     uint Loops = 0;
     while( true )
       {
@@ -306,14 +375,26 @@ namespace ExampleServer
         Worker.ReportProgress( 0, "Loops: " + Loops.ToString());
         }
 
-      if( (Loops & 0xFFFF) == 0 )
+      /*
+      if( (Loops & 0x7FFFF) == 0 )
         {
         // Use Task Manager to tweak the CPU Utilization if you want
         // it be below 100 percent.
         Thread.Sleep( 1 );
         }
+        */
 
       GetIntegerValue( X );
+      if( !IsInGoodXBitsArray( (uint)X.GetD( 0 )))
+        {
+        if( !IncrementDigitsWithBitTest())
+          {
+          Worker.ReportProgress( 0, "Incremented to the end." );
+          return false;
+          }
+
+        continue;
+        }
 
       if( !IsGoodXForAllPrimes( X ))
         {
@@ -346,6 +427,45 @@ namespace ExampleServer
 
 
 
+  private bool IsInGoodXBitsArray( uint Test )
+    {
+    return GoodXBitsArray[Test & GoodXBitsMask];
+    }
+
+
+
+  private void MakeGoodXBitsArray()
+    {
+    GoodXBitsArray = new bool[GoodXBitsModulus];
+    uint ProdModBits = (uint)Product.GetD( 0 ) & GoodXBitsMask;
+
+    int HowMany = 0;
+    for( uint Count = 0; Count < GoodXBitsModulus; Count++ )
+      {
+      uint Test = Count * Count;
+      Test += ProdModBits;
+      Test = Test & GoodXBitsMask;
+      if( IntegerMath.FirstBytesAreQuadRes( Test ))
+        {
+        HowMany++;
+        GoodXBitsArray[Count] = true;
+        }
+      }
+
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "GoodXBits HowMany: " + HowMany.ToString() );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, " " );
+    }
+
+
+
   private bool IsSolution( Integer X, Integer Y )
     {
     Worker.ReportProgress( 0, " " );
@@ -364,12 +484,24 @@ namespace ExampleServer
       Worker.ReportProgress( 0, "Went all the way to 1 without finding a factor." );
       SolutionP.SetToZero(); // It has no factors.
       SolutionQ.SetToZero();
-      return false;
+      throw( new Exception( "Went all the way to 1 without finding a factor." ));
+      // return false;
       }
 
     Worker.ReportProgress( 0, "Found P: " + IntMath.ToString10( SolutionP ) );
     Worker.ReportProgress( 0, "Found Q: " + IntMath.ToString10( SolutionQ ) );
     Worker.ReportProgress( 0, "Seconds: " + StartTime.GetSecondsToNow().ToString( "N1" ));
+    double Seconds = StartTime.GetSecondsToNow();
+    int Minutes = (int)Seconds / 60;
+    int Hours = Minutes / 60;
+    Minutes = Minutes % 60;
+    Seconds = Seconds % 60;
+    string ShowS = "Hours: " + Hours.ToString( "N0" ) + 
+                   "  Minutes: " + Minutes.ToString( "N0" ) +
+                   "  Seconds: " + Seconds.ToString( "N0" );
+
+    Worker.ReportProgress( 0, ShowS );
+
     Worker.ReportProgress( 0, " " );
     return true; // With P and Q.
     }
@@ -380,31 +512,32 @@ namespace ExampleServer
     {
     try
     {
-    int Index = QuadResDigitsArray.Length - 1;
-    if( LastIncrementIndex != Index )
+    if( LastIncrementIndex != DigitsArrayLength - 1 )
       return IncrementDigits();
 
-    int DigitsArrayLength = QuadResDigitsArray[Index].DigitsArray.Length;
+    int DigitsLength = QuadResDigitsArray[DigitsArrayLength - 1].DigitsArray.Length;
 
-    int Start = QuadResDigitsArray[Index].DigitIndex;
-    for( int Count = Start; Count < DigitsArrayLength; Count++ )
+    uint ProductBottomPart = (uint)(Product.GetD( 0 ));
+    int Start = QuadResDigitsArray[DigitsArrayLength - 1].DigitIndex;
+    for( int Count = Start; Count < DigitsLength; Count++ )
       {
-      QuadResDigitsArray[Index].DigitIndex++;
-      if( QuadResDigitsArray[Index].DigitIndex >= DigitsArrayLength )
+      QuadResDigitsArray[DigitsArrayLength - 1].DigitIndex++;
+      if( QuadResDigitsArray[DigitsArrayLength - 1].DigitIndex >= DigitsLength )
         {
-        QuadResDigitsArray[Index].DigitIndex--;
+        QuadResDigitsArray[DigitsArrayLength - 1].DigitIndex--;
         return IncrementDigits();
         }
 
       ulong Test = GetIncrementAccumulateBits();
-      Test = checked( Test * Test );
-      Test += (uint)(Product.GetD( 0 ));
+      Test = Test * Test;
+      Test += ProductBottomPart;
+
       if( IntegerMath.FirstBytesAreQuadRes( (uint)Test ))
         return true;
 
       }
 
-    QuadResDigitsArray[Index].DigitIndex--;
+    QuadResDigitsArray[DigitsArrayLength - 1].DigitIndex--;
     return IncrementDigits();
 
     }
@@ -416,22 +549,19 @@ namespace ExampleServer
 
 
 
+
   private uint GetIncrementAccumulateBits()
     {
-    int Index = QuadResDigitsArray.Length - 1;
-    uint CurrentBase = QuadResDigitsArray[Index].Base;
-    uint AccumulateDigit = (uint)IntMath.GetMod32( LastAccumulateValue, CurrentBase );
-    int DigitsIndex = QuadResDigitsArray[Index].DigitIndex;
-    uint CountB = QuadResDigitsArray[Index].MatchingInverseArray[DigitsIndex, AccumulateDigit];
-    uint BasePart = QuadResDigitsArray[Index].BigBaseBottomDigit;
+    int DigitsIndex = QuadResDigitsArray[DigitsArrayLength - 1].DigitIndex;
+    uint CountB = QuadResDigitsArray[DigitsArrayLength - 1].MatchingInverseArray[DigitsIndex, LastAccumulateDigit];
+    uint BasePart = QuadResDigitsArray[DigitsArrayLength - 1].BigBaseBottomDigit;
     ulong AccumBits = (ulong)BasePart * (ulong)CountB;
 
     // This is not the same thing as AccumulateDigit:
-    AccumBits += LastAccumulateValue.GetD( 0 );
+    AccumBits += LastAccumulateBottomDigit;
     AccumBits = AccumBits & 0xFFFFFF;
     return (uint)AccumBits;
     }
-
 
 
 
@@ -476,8 +606,7 @@ namespace ExampleServer
     Accumulate.SetFromULong( QuadResDigitsArray[0].DigitsArray[DigitIndex] );
 
     // Count starts at 1, so it's the base at 1.
-    int QRLength = QuadResDigitsArray.Length;
-    for( int Count = 1; Count < QRLength; Count++ )
+    for( int Count = 1; Count < DigitsArrayLength; Count++ )
       {
       uint CurrentBase = QuadResDigitsArray[Count].Base;
       uint AccumulateDigit = (uint)IntMath.GetMod32( Accumulate, CurrentBase );
@@ -490,6 +619,11 @@ namespace ExampleServer
       if( Count == (QuadResDigitsArray.Length - 2))
         {
         LastAccumulateValue.Copy( Accumulate );
+
+        int Index = QuadResDigitsArray.Length - 1;
+        CurrentBase = QuadResDigitsArray[Index].Base;
+        LastAccumulateDigit = GetMod32( LastAccumulateValue, CurrentBase );
+        LastAccumulateBottomDigit = (uint)LastAccumulateValue.GetD( 0 );
         }
       }
     }
@@ -507,12 +641,11 @@ namespace ExampleServer
     try
     {
     Accumulate.Copy( LastAccumulateValue );
-    int Index = QuadResDigitsArray.Length - 1;
-    uint CurrentBase = QuadResDigitsArray[Index].Base;
-    uint AccumulateDigit = (uint)IntMath.GetMod32( Accumulate, CurrentBase );
-    int DigitsIndex = QuadResDigitsArray[Index].DigitIndex;
-    uint CountB = QuadResDigitsArray[Index].MatchingInverseArray[DigitsIndex, AccumulateDigit];
-    GetValueBasePart.Copy( QuadResDigitsArray[Index].BigBase );
+    uint CurrentBase = QuadResDigitsArray[DigitsArrayLength - 1].Base;
+    // uint AccumulateDigit = GetMod32( Accumulate, CurrentBase );
+    int DigitsIndex = QuadResDigitsArray[DigitsArrayLength - 1].DigitIndex;
+    uint CountB = QuadResDigitsArray[DigitsArrayLength - 1].MatchingInverseArray[DigitsIndex, LastAccumulateDigit];
+    GetValueBasePart.Copy( QuadResDigitsArray[DigitsArrayLength - 1].BigBase );
     IntMath.MultiplyUInt( GetValueBasePart, CountB );
     Accumulate.Add( GetValueBasePart );
     }
@@ -529,22 +662,19 @@ namespace ExampleServer
     Worker.ReportProgress( 0, " " );
     Worker.ReportProgress( 0, "Top of MakeMatchingInverseArrays()." );
 
-    // This is a multiplicative-inverse type of relationship, but it's on a
-    // composite base.  So it could be calculated from the multiplicative
-    // inverses on the several primes that make up the base, for each
-    // base in the CRTArray.
-    // This makes giant arrays.
+    // This is a multiplicative-inverse type of relationship.
 
     try
     {
     // Count starts at 1, so it's the base at 1.
-    int QRLength = QuadResDigitsArray.Length;
-    for( int Count = 1; Count < QRLength; Count++ )
+    for( int Count = 1; Count < DigitsArrayLength; Count++ )
       {
-      Worker.ReportProgress( 0, "Setting up at Count: " + Count.ToString() );
+      Worker.ReportProgress( 0, "Making Matching Digits at Count: " + Count.ToString() );
 
-      QuadResDigitsArray[Count].MatchingInverseArray = new uint[QuadResDigitsArray[Count].DigitsArray.Length, QuadResDigitsArray[Count].Base];
       uint CurrentBase = QuadResDigitsArray[Count].Base;
+      QuadResDigitsArray[Count].MatchingInverseArray = new uint[QuadResDigitsArray[Count].DigitsArray.Length, CurrentBase];
+      QuadResDigitsArray[Count].ZeroBForAccumArray = new uint[CurrentBase];
+      int ZeroBLast = 0;
 
       for( uint DigitsIndex = 0; DigitsIndex < QuadResDigitsArray[Count].DigitsArray.Length; DigitsIndex++ )
         {
@@ -564,6 +694,16 @@ namespace ExampleServer
             ToTest = ToTest % CurrentBase;
             if( Digit == ToTest )
               {
+              /*
+              if( CountB == 0 )
+                {
+                // So it fits the magnitude.
+                // ======
+                QuadResDigitsArray[Count].ZeroBForAccumArray[ZeroBLast] = CountAccum;
+                ZeroBLast++;
+                }
+                */
+
               QuadResDigitsArray[Count].MatchingInverseArray[DigitsIndex, CountAccum] = CountB;
               break;
               }
