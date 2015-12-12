@@ -25,12 +25,18 @@ namespace ExampleServer
     }
 
 
+  internal struct RSACryptoWorkerInfo
+    {
+    internal string ProcessName;
+    }
+
+
   public partial class QuadResSearchForm : Form
   {
   private MainForm MForm;
   private bool Cancelled = false;
   private QuadResCombinBackground[] QuadResCombinBackgArray;
-
+  private RSACryptoBackground RSACryptoBack;
 
 
   private QuadResSearchForm()
@@ -66,14 +72,16 @@ namespace ExampleServer
     // Process 1) Hours: 0  Minutes: 37  Seconds: 60
     // SolutionP: 35,138,851,773,149
     // SolutionQ: 61,800,192,159,577
-    string PubKey =              "2,171,587,791,847,501,194,011,797,973";   // To 12.
+    // string PubKey =              "2,171,587,791,847,501,194,011,797,973";   // To 12.
 
     // Process 0) Hours: 0  Minutes: 17  Seconds: 11
     // SolutionP: 42,244,231,868,831
     // SolutionQ: 228,244,523,296,981
     // string PubKey =              "9,642,014,564,948,464,387,250,299,211";
 
-    // string PubKey =             "31,531,894,634,064,693,561,822,392,111";
+
+    string PubKey =             "31,531,894,634,064,693,561,822,392,111";
+ 
     // string PubKey =             "56,486,207,148,903,090,249,668,503,717";
     //                                         1            2            3
     //                             123 456 789 012 345 678 901 234 567 890
@@ -197,6 +205,19 @@ namespace ExampleServer
     if( IsDisposed )
       return;
 
+    if( RSACryptoBack != null )
+      {
+      if( RSACryptoBack.IsBusy )
+        {
+        if( !RSACryptoBack.CancellationPending )
+          RSACryptoBack.CancelAsync();
+
+        }
+
+      RSACryptoBack.Dispose();
+      RSACryptoBack = null;
+      }
+
     if( QuadResCombinBackgArray != null )
       {
       try
@@ -313,6 +334,19 @@ namespace ExampleServer
         }
       }
     }
+
+
+
+  private void rSACryptoToolStripMenuItem_Click( object sender, EventArgs e )
+    {
+    Cancelled = false;
+
+    RSACryptoWorkerInfo WInfo = new RSACryptoWorkerInfo();
+    WInfo.ProcessName = "RSA Make Keys";
+    RSACryptoBack = new RSACryptoBackground( MForm, WInfo );
+    RSACryptoBack.RunWorkerAsync( WInfo );
+    }
+
 
 
   }
