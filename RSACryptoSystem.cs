@@ -311,13 +311,17 @@ namespace ExampleServer
       // Euler's Phi function (aka Euler's Totient function) is calculated
       // next.
 
+      // PhiN is made from the two factors: (P - 1)(Q - 1)
       // PhiN is: (P - 1)(Q - 1) = PQ - P - Q + 1
       // If I add (P - 1) to PhiN I get:
       // PQ - P - Q + 1 + (P - 1) = PQ - Q.
       // If I add (Q - 1) to that I get:
       // PQ - Q + (Q - 1) = PQ - 1.
-      // So PQ - 1 has the same common factors as (P - 1) and (Q - 1).
-      // How difficult is it to find the factors of PQ - 1?
+      // (P - 1)(Q - 1) + (P - 1) + (Q - 1) = PQ - 1
+
+      // If (P - 1) and (Q - 1) had a larger GCD then PQ - 1 would have 
+      // that same factor too.
+
       IntMath.GreatestCommonDivisor( PrimePMinus1, PrimeQMinus1, Gcd );
       Worker.ReportProgress( 0, "GCD of PrimePMinus1, PrimeQMinus1 is: " + IntMath.ToString10( Gcd ));
 
@@ -332,6 +336,7 @@ namespace ExampleServer
         // How big of a GCD is too big?
         if( TooBig > 1234567 )
           {
+          // (P - 1)(Q - 1) + (P - 1) + (Q - 1) = PQ - 1
           Worker.ReportProgress( 0, "This GCD number is bigger than 1234567: " + IntMath.ToString10( Gcd ));
           continue;
           }
