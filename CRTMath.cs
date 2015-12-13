@@ -128,6 +128,7 @@ namespace ExampleServer
               // Create either a tab-delimited file, or create source
               // code to copy it into a hard-coded form.
               // Or just let it generate it each time, like it does here.
+              // Or in multiple threads.
               // Worker.ReportProgress( 0, Prime.ToString() + "\t" + Digit.ToString() + "\t" + MultCount.ToString() + "\r\n" );
               // Worker.ReportProgress( 0, "    FixedInverseArray[" + Prime.ToString() + ", " + Digit.ToString() + "] = " + MultCount.ToString() + ";" );
 
@@ -239,6 +240,10 @@ namespace ExampleServer
     // The point of having this Modular Reduction algorithm is that it keeps
     // this Quotient very small, and that this Divide() doesn't have to be
     // done at all during the big loop above.  It's only done once at the end.
+
+    // The idea that a mathematical system is closed under addition and
+    // multiplication is true here, and the point where it gets closed is
+    // at the maximum value of this quotient.
 
     // Is the Quotient bigger than a 32 bit integer?
     if( Quotient.GetIndex() > 0 )
@@ -895,6 +900,7 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
       */
       }
     }
+
 
 
 /*
