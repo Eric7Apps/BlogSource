@@ -73,6 +73,11 @@ namespace ExampleServer
   private Integer OriginalValue;
   private Integer AccumulateBase;
   private Integer TestForSquareRoot;
+  private Integer SqrtXPartTest1;
+  private Integer SqrtXPartTest2;
+  private Integer SqrtXPartDiff;
+  private Integer SqrtXPartR2;
+  private Integer SqrtXPartTwoB;
 
   private Integer[] BaseArrayP;
   private Integer[] BaseArrayQ;
@@ -140,6 +145,11 @@ namespace ExampleServer
     AccumulateBase = new Integer();
     TestForSquareRoot = new Integer();
     ByteStats = new int[256,256];
+    SqrtXPartTest1 = new Integer();
+    SqrtXPartTest2 = new Integer();
+    SqrtXPartDiff = new Integer();
+    SqrtXPartR2 = new Integer();
+    SqrtXPartTwoB = new Integer();
 
     MakePrimeArray();
     }
@@ -221,8 +231,8 @@ namespace ExampleServer
         {
         PrimeArray[Last] = TestN;
         // if( (Last + 100) > PrimeArray.Length )
-        // if( Last < 100 )
-          // StatusString += PrimeArray[Last].ToString() + ",\r\n";
+        // if( Last < 160 )
+          // StatusString += Last.ToString() + ") " + PrimeArray[Last].ToString() + ", ";
 
         Last++;
         if( Last >= PrimeArrayLength )
@@ -1190,6 +1200,10 @@ namespace ExampleServer
 
   internal static bool IsSmallQuadResidue( uint Number )
     {
+    // For mod 2:
+    // 1 * 1 = 1 % 2 = 1
+    // 0 * 0 = 0 % 2 = 0
+
     uint Test = Number % 3; // 0, 1, 1, 0
     if( Test == 2 )
       return false;
@@ -1364,6 +1378,10 @@ namespace ExampleServer
 
     uint FirstByte = Test;
     uint SecondByte = (FirstByte & 0x0F00) >> 8;
+
+    // The bottom 4 bits can only be 0, 1, 4 or 9
+    // 0000, 0001, 0100 or 1001
+    // The bottom 2 bits can only be 00 or 01
 
     FirstByte = FirstByte & 0x0FF;
     switch( FirstByte )
@@ -2212,7 +2230,7 @@ namespace ExampleServer
   // whole answer, if it's a small number, or it uses it to find the
   // top part.  Then from there it goes on to a bit by bit search
   // with TestSqrtBits().
-  
+
   public bool SquareRoot( Integer Square, Integer SqrRoot ) 
     {
     ulong ToMatch;
@@ -2280,37 +2298,37 @@ namespace ExampleServer
     // R = S - B^2
     // R = 2Bx + x^2
     // R = x(2B + x)
-    Integer Test1 = new Integer();
-    Integer Test2 = new Integer();
-    Integer Remainder = new Integer();
-    Integer R2 = new Integer();
-    Integer TwoB = new Integer();
 
-    Test1.Copy( SqrRoot ); // B
-    DoSquare( Test1 ); // B^2
-    Remainder.Copy( Square );
-    Subtract( Remainder, Test1 ); // S - B^2
-    TwoB.Copy( SqrRoot ); // B
-    TwoB.ShiftLeft( 1 ); // Times 2 for 2B.
-    Test1.Copy( TwoB ); 
-    ulong TestBits = Test1.GetD( Test1.GetIndex());
+    SqrtXPartTest1.Copy( SqrRoot ); // B
+    DoSquare( SqrtXPartTest1 ); // B^2
+    SqrtXPartDiff.Copy( Square );
+    Subtract( SqrtXPartDiff, SqrtXPartTest1 ); // S - B^2
+    SqrtXPartTwoB.Copy( SqrRoot ); // B
+    SqrtXPartTwoB.ShiftLeft( 1 ); // Times 2 for 2B.
+    SqrtXPartTest1.Copy( SqrtXPartTwoB ); 
+    ulong TestBits = SqrtXPartTest1.GetD( SqrtXPartTest1.GetIndex());
     int ShiftBy = FindShiftBy( TestBits );
-    R2.Copy( Remainder );
-    R2.ShiftLeft( ShiftBy );     // Multiply the numerator and the denominator
-    Test1.ShiftLeft( ShiftBy ); // by the same amount.
+    SqrtXPartR2.Copy( SqrtXPartDiff );
+    SqrtXPartR2.ShiftLeft( ShiftBy );     // Multiply the numerator and the denominator
+    SqrtXPartTest1.ShiftLeft( ShiftBy ); // by the same amount.
 
     ulong Highest; 
-    if( R2.GetIndex() == 0 )
+    if( SqrtXPartR2.GetIndex() == 0 )
       {
-      Highest = R2.GetD( R2.GetIndex());
+      Highest = SqrtXPartR2.GetD( SqrtXPartR2.GetIndex());
       }
     else
       {
-      Highest = R2.GetD( R2.GetIndex()) << 32;
-      Highest |= R2.GetD( R2.GetIndex() - 1 );
+      Highest = SqrtXPartR2.GetD( SqrtXPartR2.GetIndex()) << 32;
+      Highest |= SqrtXPartR2.GetD( SqrtXPartR2.GetIndex() - 1 );
       }
 
-    Highest = Highest / Test1.GetD( Test1.GetIndex());
+    ulong Denom = SqrtXPartTest1.GetD( SqrtXPartTest1.GetIndex());
+    if( Denom == 0 )
+      Highest = 0xFFFFFFFF;
+    else
+      Highest = Highest / Denom;
+
     if( Highest == 0 )
       {
       SqrRoot.SetD( TestIndex, 0 );
@@ -2332,11 +2350,11 @@ namespace ExampleServer
         continue;
         }
 
-      Test1.Copy( TwoB );
-      Test1.SetD( TestIndex, TempXDigit ); // 2B + x
-      Test2.SetDigitAndClear( TestIndex, TempXDigit ); // Set X.
-      MultiplyTop( Test2, Test1 ); 
-      if( Test2.ParamIsGreaterOrEq( Remainder ))
+      SqrtXPartTest1.Copy( SqrtXPartTwoB );
+      SqrtXPartTest1.SetD( TestIndex, TempXDigit ); // 2B + x
+      SqrtXPartTest2.SetDigitAndClear( TestIndex, TempXDigit ); // Set X.
+      MultiplyTop( SqrtXPartTest2, SqrtXPartTest1 ); 
+      if( SqrtXPartTest2.ParamIsGreaterOrEq( SqrtXPartDiff ))
         XDigit |= BitTest; // Then keep the bit.
 
       BitTest >>= 1;
@@ -2344,6 +2362,7 @@ namespace ExampleServer
 
     SqrRoot.SetD( TestIndex, XDigit );
     }
+
 
 
 
@@ -2513,6 +2532,10 @@ namespace ExampleServer
       ulong MostQuotientCanPossiblyBe = (ulong)Modulus.GetIndex() * 2;
       MostQuotientCanPossiblyBe *= 0xFFFFFFFFUL; // Times the most any one digit can be.
       StatusString += "MostQuotientCanPossiblyBe: " + MostQuotientCanPossiblyBe.ToString( "N0" ) + "\r\n";
+
+      // The idea that a mathematical system is closed under addition and
+      // multiplication is true here, and the point where it gets closed is
+      // at the maximum value of this quotient.
 
       // The most the quotient could possibly ever be is proportional
       // to the digit size.  Compare this to the size of the quotient in 
@@ -3053,18 +3076,12 @@ namespace ExampleServer
     //    then it won't work.
 
     if( !KnownNumber.IsULong())
-      {
-      Worker.ReportProgress( 0, "FindMultiplicativeInverseSmall() was called with too big of a KnownNumber." );
-      return false;
-      }
+      throw( new Exception( "FindMultiplicativeInverseSmall() was called with too big of a KnownNumber." ));
 
     ulong KnownNumberULong  = KnownNumber.GetAsULong();
     //                       65537
     if( KnownNumberULong > 1000000 )
-      {
-      Worker.ReportProgress( 0, "KnownNumberULong > 1000000. FindMultiplicativeInverseSmall() was called with too big of an exponent." );
-      return false;
-      }
+      throw( new Exception( "KnownNumberULong > 1000000. FindMultiplicativeInverseSmall() was called with too big of an exponent." ));
 
     // (Y * PhiN) + 1 mod PubKExponent has to be zero if Y is a solution.
     ulong ModulusModKnown = GetMod32( Modulus, KnownNumberULong );
@@ -3084,16 +3101,23 @@ namespace ExampleServer
         if( Worker.CancellationPending )
           return false;
 
+        // =========
+        // What is PhiN mod 65537?
+        // That gives me Y.
+        // The private key exponent is X*65537 + ModPart
+        // The CipherText raised to that is the PlainText.
+
+        // P + zN = C^(X*65537 + ModPart)
+        // P + zN = C^(X*65537)(C^ModPart)
+        // P + zN = ((C^65537)^X)(C^ModPart)
+
         Worker.ReportProgress( 0, "Found Y at: " + Y.ToString( "N0" ));
         ToFind.Copy( Modulus );
         MultiplyULong( ToFind, Y );
         ToFind.AddULong( 1 );
         Divide( ToFind, KnownNumber, Quotient, Remainder );
         if( !Remainder.IsZero())
-          {
-          Worker.ReportProgress( 0, "This can't happen. !Remainder.IsZero()" );
-          return false;
-          }
+          throw( new Exception( "This can't happen. !Remainder.IsZero()" ));
 
         ToFind.Copy( Quotient );
         // Worker.ReportProgress( 0, "ToFind: " + ToString10( ToFind ));
@@ -3114,8 +3138,7 @@ namespace ExampleServer
 
       // I've only seen this happen once.  Were the primes P and Q not
       // really primes?
-      Worker.ReportProgress( 0, "This is a bug. Remainder has to be 1: " + ToString10( Remainder ));
-      return false;
+      throw( new Exception( "This is a bug. Remainder has to be 1: " + ToString10( Remainder ) ));
       }
 
     return true;
