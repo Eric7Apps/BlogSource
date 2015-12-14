@@ -18,6 +18,7 @@
 using System;
 using System.Text;
 using System.ComponentModel; // BackgroundWorker
+using System.Collections.Generic;
 
 
 
@@ -90,7 +91,15 @@ namespace ExampleServer
   private string StatusString = "";
   private bool Cancelled = false;
   private int[,] ByteStats;
+  private SortedDictionary<string, ModReduceMapRec> ModReduceDictionary;
 
+
+  internal struct ModReduceMapRec
+    {
+    internal Integer Result;
+    internal Integer ToReduce;
+    internal int HowMany;
+    }
 
 
   internal IntegerMath()
@@ -150,6 +159,8 @@ namespace ExampleServer
     SqrtXPartDiff = new Integer();
     SqrtXPartR2 = new Integer();
     SqrtXPartTwoB = new Integer();
+
+    ModReduceDictionary = new SortedDictionary<string, ModReduceMapRec>();
 
     MakePrimeArray();
     }
@@ -2450,7 +2461,6 @@ namespace ExampleServer
     // x^n = (x^2)^((n - 1)/2) if n is odd.
     // x^n = (x^2)^(n/2)       if n is even.
 
-    byte InputByteStat = (byte)(Result.GetD( 0 ) & 0xFF);
     if( Result.IsZero())
       return; // With Result still zero.
 
@@ -2503,6 +2513,175 @@ namespace ExampleServer
       // Square it.
       Multiply( XForModPower, XForModPower );
       ModularReduction( TempForModPower, XForModPower );
+      XForModPower.Copy( TempForModPower );
+      }
+
+    // When ModularReduction() gets called it multiplies a base number
+    // by a uint sized digit.  So that can make the result one digit bigger
+    // than GeneralBase.  Then when they are added up you can get carry
+    // bits that can make it a little bigger.
+    int HowBig = Result.GetIndex() - Modulus.GetIndex();
+    // if( HowBig > 1 )
+      // throw( new Exception( "This does happen. Diff: " + HowBig.ToString() ));
+
+    if( HowBig > 2 )
+      throw( new Exception( "The never happens. Diff: " + HowBig.ToString() ));
+
+    /*
+    if( DoQuotientTest )
+      {
+      // Assume I don't know what the quotient is but I want to find
+      // out what it is.  In other words I want to find the complete 
+      // output (before that Divide() happens at the end) of
+      // ModularPower() when I know the CipherText.
+
+      ulong MostQuotientCanPossiblyBe = (ulong)Modulus.GetIndex() * 2;
+      MostQuotientCanPossiblyBe *= 0xFFFFFFFFUL; // Times the most any one digit can be.
+      StatusString += "MostQuotientCanPossiblyBe: " + MostQuotientCanPossiblyBe.ToString( "N0" ) + "\r\n";
+
+      // The idea that a mathematical system is closed under addition and
+      // multiplication is true here, and the point where it gets closed is
+      // at the maximum value of this quotient.
+
+      // The most the quotient could possibly ever be is proportional
+      // to the digit size.  Compare this to the size of the quotient in 
+      // CRTMath.ModularPower().  Also, if you look in the ECInteger.java
+      // file you'll see that it uses 24 bit digits.  Those numbers would
+      // have a smaller quotient here.  And using 16 bit digits would
+      // make this quotient even smaller.  But it requires more
+      // additions and multiplications to be done in ModularReduction().
+      // Using digits of size 0xFFFF means Modulus.GetIndex() is twice
+      // as big.  Four times GetIndex() times 0xFFFF is a much smaller
+      // quotient.
+
+      // Let's just say I got the public key modulus and exponent from the
+      // TLS ServerCertificate message (see my blog), and I got the
+      // CipherText from the TLS ClientKeyExchange message.
+
+      ECTime FindQuotientTime = new ECTime();
+      FindQuotientTime.SetToNow();
+      Integer ModulusMultiple = new Integer();
+      Integer CipherText = new Integer();
+      Integer ResultBeforeDivide = new Integer();
+
+      ResultBeforeDivide.Copy( Result );
+      Divide( Result, Modulus, Quotient, Remainder );
+
+      // So assume I have the CipherText value, but not the quotient.
+      CipherText.Copy( Remainder );
+
+      // It takes less than one second to find this quotient
+      // in CRTMath.ModularPower().  But by cryptographic standards
+      // for "brute force" this would not take long either.
+      for( ulong Count = 0; Count < MostQuotientCanPossiblyBe; Count++ )
+        {
+        if( Cancelled )
+          break;
+
+        ModulusMultiple.Copy( Modulus );
+        MultiplyULong( ModulusMultiple, Count );
+        ModulusMultiple.Add( CipherText );
+        if( Result.IsEqual( ModulusMultiple ))
+         {
+          StatusString += "\r\n\r\n\r\nFound the quotient matching this CipherText at: " + Count.ToString( "N0" ) + "\r\n";
+          StatusString += "It took " + FindQuotientTime.GetSecondsToNow().ToString( "N1" ) + " seconds to find it.\r\n\r\n\r\n";
+          break;
+          }
+        }
+      }
+    else
+      { */
+
+      // What does it mean to have a discrete logarithm in
+      // this finite system?
+
+      // Get the Quotient and Remainder this way, since I 
+      // know the Result after the modular reductions, and
+      // the Modulus.
+      Divide( Result, Modulus, Quotient, Remainder );
+      
+      // }
+
+    Result.Copy( Remainder );
+    }
+
+
+
+
+  internal void ModularPowerWithDictionary( Integer Result, Integer Exponent, Integer Modulus ) // , bool DoQuotientTest )
+    {
+    // The square and multiply method is in Wikipedia:
+    // https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+    // x^n = (x^2)^((n - 1)/2) if n is odd.
+    // x^n = (x^2)^(n/2)       if n is even.
+
+    byte InputByteStat = (byte)(Result.GetD( 0 ) & 0xFF);
+    if( Result.IsZero())
+      return; // With Result still zero.
+
+    if( Result.IsEqual( Modulus ))
+      {
+      // It is congruent to zero % ModN.
+      Result.SetToZero();
+      return;
+      }
+
+    // Result is not zero at this point.
+    if( Exponent.IsZero() )
+      {
+      Result.SetFromULong( 1 );
+      return;
+      }
+
+    if( Modulus.ParamIsGreater( Result ))
+      {
+      // throw( new Exception( "This is not supposed to be input for RSA plain text." ));
+      Divide( Result, Modulus, Quotient, Remainder );
+      Result.Copy( Remainder );
+      }
+
+    if( Exponent.IsEqualToULong( 1 ))
+      {
+      // Result stays the same.
+      return;
+      }
+
+    SetupGeneralBaseArray( Modulus );
+
+    Integer TestResult = new Integer();
+    Integer TestToReduce = new Integer();
+
+    XForModPower.Copy( Result );
+    ExponentCopy.Copy( Exponent );
+    int TestIndex = 0;
+    Result.SetFromULong( 1 );
+    while( true )
+      {
+      if( (ExponentCopy.GetD( 0 ) & 1) == 1 ) // If the bottom bit is 1.
+        {
+        Multiply( Result, XForModPower );
+        TestToReduce.Copy( Result );
+
+        // ModularReductionWithDictionary( Integer Result, Integer ToReduce )
+        ModularReductionWithDictionary( TempForModPower, Result );
+        Result.Copy( TempForModPower );
+
+        // This worked without any exceptions when I ran it
+        // for a while.
+
+        ReverseModularReduction( Result, TestResult );
+        if( !TestToReduce.IsEqual( TestResult ))
+          throw( new Exception( "!TestToReduce.IsEqual( ToReduce )." ));
+
+        }
+
+      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
+      if( ExponentCopy.IsZero())
+        break;
+
+      // Square it.
+      Multiply( XForModPower, XForModPower );
+      ModularReductionWithDictionary( TempForModPower, XForModPower );
       XForModPower.Copy( TempForModPower );
       }
 
@@ -2586,6 +2765,9 @@ namespace ExampleServer
     else
       { */
 
+      // What does it mean to have a discrete logarithm in
+      // this finite system?
+
       // Get the Quotient and Remainder this way, since I 
       // know the Result after the modular reductions, and
       // the Modulus.
@@ -2595,6 +2777,46 @@ namespace ExampleServer
 
     Result.Copy( Remainder );
     }
+
+
+
+  /*
+  reverse this?
+  internal void ReverseModularPower( Integer Result, Integer Exponent, Integer Modulus )
+    {
+    // What does it mean to have a discrete logarithm in
+    // this finite system?
+
+    XForModPower.Copy( Result );
+    ExponentCopy.Copy( Exponent );
+    int TestIndex = 0;
+    Result.SetFromULong( 1 );
+    while( true )
+      {
+      if( (ExponentCopy.GetD( 0 ) & 1) == 1 ) // If the bottom bit is 1.
+        {
+        Multiply( Result, XForModPower );
+        ModularReduction( TempForModPower, Result );
+        Result.Copy( TempForModPower );
+        }
+
+      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
+      if( ExponentCopy.IsZero())
+        break;
+
+      // Square it.
+      Multiply( XForModPower, XForModPower );
+      ModularReduction( TempForModPower, XForModPower );
+      XForModPower.Copy( TempForModPower );
+      }
+
+
+    //  Divide( Result, Modulus, Quotient, Remainder );
+    // Result.Copy( Remainder );
+    }
+    */
+
+
 
 
 
@@ -3305,7 +3527,7 @@ namespace ExampleServer
       // than GeneralBase.  Compare this with the two full Muliply()
       // calls done on each digit of the quotient in LongDivide3().
 
-      // Accumulate is set to a new value here.
+      // AccumulateBase is set to a new value here.
       int CheckIndex = MultiplyUIntFromCopy( AccumulateBase, GeneralBaseArray[Count], ToReduce.GetD( Count ));
 
       if( CheckIndex > BiggestIndex )
@@ -3322,6 +3544,121 @@ namespace ExampleServer
       }
     }
 
+
+
+  internal int ModularReductionWithDictionary( Integer Result, Integer ToReduce )
+    {
+    try
+    {
+    // This method used to be called AddByGeneralBaseArrays().
+    if( GeneralBaseArray == null )
+      throw( new Exception( "SetupGeneralBaseArray() should have already been called." ));
+
+    Result.SetToZero();
+
+    // The Index size of ToReduce is usually double the length of the modulus
+    // this is reducing it to.  Like if you multiply P and Q to get N, then
+    // the ToReduce that comes in here is about the size of N and the GeneralBase
+    // is about the size of P.  So the amount of work done here is proportional
+    // to P times N.
+
+    int HowManyToAdd = ToReduce.GetIndex() + 1;
+    int BiggestIndex = 0;
+    for( int Count = 0; Count < HowManyToAdd; Count++ )
+      {
+      // The size of the numbers in GeneralBaseArray are all less than
+      // the size of GeneralBase.
+      // This multiplication by a uint is with a number that is not bigger
+      // than GeneralBase.  Compare this with the two full Muliply()
+      // calls done on each digit of the quotient in LongDivide3().
+
+      // AccumulateBase is set to a new value here.
+      int CheckIndex = MultiplyUIntFromCopy( AccumulateBase, GeneralBaseArray[Count], ToReduce.GetD( Count ));
+
+      if( CheckIndex > BiggestIndex )
+        BiggestIndex = CheckIndex;
+
+      Result.Add( AccumulateBase );
+      }
+
+    ModReduceMapRec Rec = new ModReduceMapRec();
+    string KeyVal = ToString10( ToReduce );
+
+    Integer ResultCopy = new Integer();
+    Integer ToReduceCopy = new Integer();
+    ResultCopy.Copy( Result );
+    ToReduceCopy.Copy( ToReduce );
+    Rec.Result = ResultCopy;
+    Rec.ToReduce = ToReduceCopy;
+
+    if( ModReduceDictionary.ContainsKey( KeyVal ))
+      throw( new Exception( "How often does this get more than one value for the key?" ));
+      // Rec.HowMany += ModReduceDictionary[KeyVal].HowMany;
+    else
+      Rec.HowMany = 1;
+
+    ModReduceDictionary[KeyVal] = Rec;
+
+    return Result.GetIndex();
+    }
+    catch( Exception Except )
+      {
+      throw( new Exception( "Exception in ModularReduction(): " + Except.Message ));
+      }
+    }
+
+
+
+  internal void ReverseModularReduction( Integer Result, Integer ToReduce ) // , BackgroundWorker Worker )
+    {
+    // The number ToReduce is much bigger and it's less likely to have
+    // a duplicate and so it is the key.  But here I need to look it 
+    // up by the value, and see what key belongs to it.
+
+    ToReduce.SetToZero();
+
+    int HowMany = 0;
+    foreach( KeyValuePair<string, ModReduceMapRec> Kvp in ModReduceDictionary )
+      {
+      // if( Worker.CancellationPending )
+        // return;
+
+      if( Result.IsEqual( Kvp.Value.Result ))
+        {
+        HowMany++;
+        if( HowMany > 1 )
+          throw( new Exception( "There was more than one matching value in ReverseModularReduction()." ));
+
+        ToReduce.Copy( Kvp.Value.ToReduce );
+        }
+      }
+
+    // It returns with either a matching ToReduce value, or ToReduce is zero.
+    }
+
+
+
+  internal void ShowModReduceDictionary( BackgroundWorker Worker )
+    {
+    Worker.ReportProgress( 0, " " );
+    Worker.ReportProgress( 0, "Modular Reduction dictionary:" );
+
+    int Count = 0;
+    foreach( KeyValuePair<string, ModReduceMapRec> Kvp in ModReduceDictionary )
+      {
+      Count++;
+      if( Count > 20 )
+        break;
+
+      if( Worker.CancellationPending )
+        return;
+
+      string ShowS = Kvp.Key + ": " + ToString10( Kvp.Value.Result ) + 
+         "  HowMany: " + Kvp.Value.HowMany.ToString( "N0" );
+
+      Worker.ReportProgress( 0, ShowS );
+      }
+    }
 
 
   internal ulong GetFactorial( uint Value )
