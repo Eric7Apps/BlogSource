@@ -181,6 +181,13 @@ namespace ExampleServer
 
 
 
+  internal uint GetBiggestPrime()
+    {
+    return PrimeArray[PrimeArrayLength - 1];
+    }
+
+
+
   internal uint GetPrimeAt( int Index )
     {
     if( Index >= PrimeArrayLength )
