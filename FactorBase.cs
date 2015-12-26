@@ -25,13 +25,14 @@ namespace ExampleServer
   private Integer EulerResult;
   private Integer EulerModulus;
   private Integer OneMainFactor;
+  private ExponentVectorNumber ExpOneMainFactor;
   private BackgroundWorker Worker;
   private QuadResWorkerInfo WInfo;
   private ECTime StartTime;
   private YBaseToPrimesRec[] YBaseToPrimesArray;
   private int YBaseToPrimesArrayLast = 0;
   private const uint IncrementConst = 1;
-
+  private const int BSmoothLimit = 1024 * 8; // is less than IntegerMath.PrimeArrayLength;
 
 
   internal struct YBaseToPrimesRec
@@ -65,18 +66,18 @@ namespace ExampleServer
     EulerResult = new Integer();
     EulerModulus = new Integer();
     OneMainFactor = new Integer();
-
+    ExpOneMainFactor = new ExponentVectorNumber( IntMath );
     StartTime = new ECTime();
     StartTime.SetToNow();
-
     IntMath.SetFromString( Product, WInfo.PublicKeyModulus );
     IntMath.SquareRoot( Product, ProductSqrRoot );
-    YBaseToPrimesArray = new YBaseToPrimesRec[8];
     }
 
 
 
   internal void MakeBaseNumbers()
+    {
+    try
     {
     MakeYBaseToPrimesArray();
     if( Worker.CancellationPending )
@@ -85,8 +86,7 @@ namespace ExampleServer
     Integer YTop = new Integer();
     Integer Y = new Integer();
     Integer XSquared = new Integer();
-    Integer OneMainFactor = new Integer();
-
+    Integer Test = new Integer();
     YTop.SetToZero();
     uint XSquaredBitLength = 1;
 
@@ -127,11 +127,14 @@ namespace ExampleServer
       // About 98 percent of the time it is running IncrementBy().
       IncrementYBy += IncrementConst;
       uint BitLength = IncrementBy();
-      const uint SomeOptimumBitLength = 10;
+
+      const uint SomeOptimumBitLength = 30;
       if( BitLength < SomeOptimumBitLength )
         continue;
 
-      double Ratio = (double)BitLength / (double)XSquaredBitLength;
+      double Ratio = 0;
+      if( XSquaredBitLength > 0 )
+        Ratio = (double)BitLength / (double)XSquaredBitLength;
 
       // If this Ratio was about 1.0 it would mean all of the exponents 
       // are one.  It would exclude numbers with exponents higher
@@ -142,7 +145,13 @@ namespace ExampleServer
       // that got added in IncrementBy(), where it calculates
       // TotalBitLength.
 
-      const double SomeOptimumRatio = 0.5;
+      // This ratio has to do with how many small factors you want
+      // in the number.  But it doesn't limit your factor base at all.
+      // You can still have any size prime in your factor base (up to
+      // IntegerMath.PrimeArrayLength).  Compare the size of
+      // YBaseToPrimesArrayLength to the PrimeArrayLength.
+      const double SomeOptimumRatio = 0.2;
+
       if( Ratio > SomeOptimumRatio )
         {
         BSmoothTestsCount++;
@@ -175,8 +184,16 @@ namespace ExampleServer
           }
         else
           {
-          // IntMath.Divide( XSquared, OneMainFactor, Quotient, Remainder );
-          ExpNumber.SetFromTraditionalInteger( XSquared );
+          if( OneMainFactor.IsZero())
+            throw( new Exception( "OneMainFactor.IsZero()." ));
+
+          IntMath.Divide( XSquared, OneMainFactor, Quotient, Remainder );
+          ExpNumber.SetFromTraditionalInteger( Quotient );
+          ExpNumber.Multiply( ExpOneMainFactor );
+          ExpNumber.GetTraditionalInteger( Test );
+          if( !Test.IsEqual( XSquared ))
+            throw( new Exception( "!Test.IsEqual( XSquared )." ));
+
           }
 
         if( ExpNumber.IsBSmooth())
@@ -195,11 +212,13 @@ namespace ExampleServer
             Worker.ReportProgress( 0, "Ratio: " + Ratio.ToString( "N2" ));
             Worker.ReportProgress( 0, ExpNumber.ToString() );
 
-            if( BSmoothCount > (YBaseToPrimesArrayLast + 1))
+            // What should BSmoothLimit be?
+            // (Since FactorDictionary.cs will reduce the final factor base.)
+            if( BSmoothCount > BSmoothLimit )
               {
               Worker.ReportProgress( 0, "Found enough to make the matrix." );
               Worker.ReportProgress( 0, "BSmoothCount: " + BSmoothCount.ToString( "N0" ));
-              Worker.ReportProgress( 0, "YBaseToPrimesArrayLast: " + YBaseToPrimesArrayLast.ToString( "N0" ));
+              Worker.ReportProgress( 0, "BSmoothLimit: " + BSmoothLimit.ToString( "N0" ));
               Worker.ReportProgress( 0, "Seconds: " + StartTime.GetSecondsToNow().ToString( "N1" ));
               double Seconds = StartTime.GetSecondsToNow();
               int Minutes = (int)Seconds / 60;
@@ -218,17 +237,12 @@ namespace ExampleServer
           }
         }
       }
+
     }
-
-
-
-  private void AddYBaseToPrimesRec( YBaseToPrimesRec Rec )
-    {
-    YBaseToPrimesArray[YBaseToPrimesArrayLast] = Rec;
-    YBaseToPrimesArrayLast++;
-    if( YBaseToPrimesArrayLast >= YBaseToPrimesArray.Length )
-      Array.Resize( ref YBaseToPrimesArray, YBaseToPrimesArray.Length + (1024 * 16));
-
+    catch( Exception Except )
+      {
+      throw( new Exception( "Exception in MakeBaseNumbers():\r\n" + Except.Message ));
+      }
     }
 
 
@@ -237,12 +251,15 @@ namespace ExampleServer
   private uint IncrementBy()
     {
     uint TotalBitLength = 0;
-    int Last = YBaseToPrimesArrayLast;
-    for( int Count = 0; Count < Last; Count++ )
+    for( int Count = 0; Count < YBaseToPrimesArrayLast; Count++ )
       {
       // It wouldn't take many logic gates per array record to make
       // this work in parallel in hardware.
       // How would a GPU be used to do this?
+      // This is only a practical algorithm if it can be done in parallel
+      // of if the criteria is that the number includes several small 
+      // factors, where "small" is defined as how big you want to
+      // make YBaseToPrimesArrayLast.
       YBaseToPrimesArray[Count].Digit += IncrementConst;
       YBaseToPrimesArray[Count].Digit = YBaseToPrimesArray[Count].Digit % YBaseToPrimesArray[Count].Prime;
       uint XValue = YBaseToPrimesArray[Count].YToX[YBaseToPrimesArray[Count].Digit];
@@ -259,13 +276,16 @@ namespace ExampleServer
   private void GetOneMainFactor()
     {
     OneMainFactor.SetToOne();
+    ExpOneMainFactor.SetToZero();
 
     for( int Count = 0; Count < YBaseToPrimesArrayLast; Count++ )
       {
       uint XValue = YBaseToPrimesArray[Count].YToX[YBaseToPrimesArray[Count].Digit];
       if( XValue == 0 )
+        {
+        ExpOneMainFactor.AddOneFastVectorElement( YBaseToPrimesArray[Count].Prime );
         IntMath.MultiplyUInt( OneMainFactor, YBaseToPrimesArray[Count].Prime );
-
+        }
       }
     }
 
@@ -288,10 +308,15 @@ namespace ExampleServer
 
   private void MakeYBaseToPrimesArray()
     {
+    try
+    {
     Worker.ReportProgress( 0, " " );
     Worker.ReportProgress( 0, "Top of MakeYBaseToPrimesArray()." );
 
-    for( int Count = 0; Count < IntegerMath.PrimeArrayLength; Count++ )
+    int ArrayLength = 1024 * 8;
+    YBaseToPrimesArray = new YBaseToPrimesRec[ArrayLength];
+
+    for( int Count = 0; Count < ArrayLength; Count++ )
       {
       if( Worker.CancellationPending )
         return;
@@ -337,11 +362,21 @@ namespace ExampleServer
         Rec.YToX[Y] = (uint)Test; // Test is x^2.
         }
 
-      AddYBaseToPrimesRec( Rec );
+      YBaseToPrimesArray[YBaseToPrimesArrayLast] = Rec;
+      YBaseToPrimesArrayLast++;
+
       }
+
+    Array.Resize( ref YBaseToPrimesArray, YBaseToPrimesArrayLast );
 
     Worker.ReportProgress( 0, "Finished MakeYBaseToPrimesArray()." );
     Worker.ReportProgress( 0, "YBaseToPrimesArrayLast: " + YBaseToPrimesArrayLast.ToString() );
+
+    }
+    catch( Exception Except )
+      {
+      throw( new Exception( "Exception in MakeYBaseToPrimesArray():\r\n" + Except.Message ));
+      }
     }
 
 
