@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 
@@ -27,7 +27,7 @@ namespace ExampleServer
   private ChineseRemainder CRTXForModPower;
   private Integer[] BaseArray;
   private ChineseRemainder[] CRTBaseArray;
-  private ChineseRemainder[] CRTBaseModArray;
+  // private ChineseRemainder[] CRTBaseModArray;
   private ChineseRemainder[] NumbersArray;
   private ChineseRemainder CRTCopyForSquare;
   private Integer AccumulateBase;
@@ -146,6 +146,7 @@ namespace ExampleServer
 
 
 
+  /*
   internal void ModularPower( ChineseRemainder CRTResult,
                               Integer Exponent,
                               ChineseRemainder CRTModulus )
@@ -189,7 +190,7 @@ namespace ExampleServer
       // throw( new Exception( "This is not supposed to be input for RSA plain text." ));
       IntMath.Divide( Result, Modulus, Quotient, Remainder );
       Result.Copy( Remainder );
-      CRTResult.SetFromTraditionalInteger( Remainder, IntMath );
+      CRTResult.SetFromTraditionalInteger( Remainder );
       }
 
     if( Exponent.IsEqualToULong( 1 ))
@@ -279,7 +280,7 @@ namespace ExampleServer
     // Let's just say I got the public key modulus and exponent from the
     // TLS ServerCertificate message (see my blog), and I got the
     // CipherText from the TLS ClientKeyExchange message.
-    /*
+    //////////
     ECTime FindQuotientTime = new ECTime();
     FindQuotientTime.SetToNow();
     ChineseRemainder CRTModulusMultiple = new ChineseRemainder( IntMath );
@@ -310,14 +311,15 @@ namespace ExampleServer
         break;
         }
       }
-      */
+      ///////////
 
     Result.Copy( Remainder );
-    CRTResult.SetFromTraditionalInteger( Remainder, IntMath );
+    CRTResult.SetFromTraditionalInteger( Remainder );
     }
+    */
 
 
-
+  /*
   internal void ModularReduction( ChineseRemainder CRTInput,
                                  ChineseRemainder CRTAccumulate )
     {
@@ -363,9 +365,10 @@ namespace ExampleServer
       throw( new Exception( "Exception in ModularReduction(): " + Except.Message ));
       }
     }
+    */
 
 
-
+  /*
   internal int SetupBaseMultiples( ChineseRemainder ToSetup )
     {
     try
@@ -498,7 +501,7 @@ namespace ExampleServer
       throw( new Exception( "Exception in SetupBaseMultiples(): " + Except.Message ));
       }
     }
-
+    */
 
 
   internal void GetTraditionalInteger( Integer Accumulate, ChineseRemainder CRTInput )
@@ -617,7 +620,7 @@ It accumulates values like this:
 */
 
 
-
+  /*
   internal void GetIntegerFromBaseMultiples( ChineseRemainder ToGetFrom, Integer ToGet )
     {
     try
@@ -652,7 +655,7 @@ It accumulates values like this:
       throw( new Exception( "Exception in GetIntegerFromBaseMultiples(): " + Except.Message ));
       }
     }
-
+    */
 
 
 
@@ -768,7 +771,7 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
 45, 21, 56, 18, 16, 0, 12, 6, 20, 20, 16, 17, 0, 10, 0, 0, 0, 4, 0, 1, 1, 
 20, 8, 34, 34, 50, 19, 10, 14, 29, 9, 28, 22, 8, 0, 0, 4, 4, 5, 0, 2, 0, 
   */
-
+  /*
   internal void SetupBaseModArray( Integer Modulus )
     {
     try
@@ -816,7 +819,7 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
       IntMath.MultiplyUInt( BigBase, IntMath.GetPrimeAt( Count ));
       IntMath.Divide( BigBase, Modulus, Quotient, Remainder );
       BigBase.Copy( Remainder );
-      CRTBigBase.SetFromTraditionalInteger( BigBase, IntMath );
+      CRTBigBase.SetFromTraditionalInteger( BigBase );
       }
     }
     catch( Exception Except )
@@ -824,7 +827,7 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
       throw( new Exception( "Exception in SetupBaseModArray(): " + Except.Message ));
       }
     }
-
+    */
 
 
   private Integer GetBaseIntegerAt( int Index )
@@ -851,7 +854,7 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
       {
       SetNumber.SetFromULong( Count );
       ChineseRemainder CRTSetNumber = new ChineseRemainder( IntMath );
-      CRTSetNumber.SetFromTraditionalInteger( SetNumber, IntMath );
+      CRTSetNumber.SetFromTraditionalInteger( SetNumber );
       NumbersArray[Count] = CRTSetNumber;
       }
     }
@@ -865,7 +868,7 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
 
   internal bool IsEqualToInteger( ChineseRemainder CRTTest, Integer Test )
     {
-    CRTTempForIsEqual.SetFromTraditionalInteger( Test, IntMath );
+    CRTTempForIsEqual.SetFromTraditionalInteger( Test );
     if( CRTTest.IsEqual( CRTTempForIsEqual ))
       return true;
     else
@@ -922,7 +925,7 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
 ...
 */
 
-
+  /*
   // This is a different way of setting the base multiples.
   // It is going backwards through the sequence of accumulated
   // values.
@@ -1005,14 +1008,15 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
       throw( new Exception( "Accumulate isn't right in SetBaseMultiplesFromInteger()." ));
 
     // This just sets the digits in the array to match the magnitudes.
-    CRTToSet.SetFromTraditionalInteger( FindFrom, IntMath );
+    CRTToSet.SetFromTraditionalInteger( FindFrom );
 
     Worker.ReportProgress( 0, "Finished with SetBaseMultiplesFromInteger()." );
     Worker.ReportProgress( 0, " " );
     }
+   */
 
 
-
+  /*
   internal void AccumulateTotal( ChineseRemainder CRTToSet,
                                 int TopIndex,
                                 Integer Accumulate )
@@ -1031,8 +1035,10 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
       Accumulate.Add( OnePart );
       }
     }
+    */
 
 
+  /*
   internal int FindBaseMultipleAt( Integer FindFrom,
                                  ChineseRemainder CRTToSet,
                                  int TopIndex,
@@ -1061,9 +1067,9 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
 
     throw( new Exception( "Bug in FindBaseMultipleAt(). Got to the bottom." ));
     }
+    */
 
-
-
+  /*
   internal bool IsFermatPrime( ChineseRemainder CRTToTest, int HowMany )
     {
     // Also see Rabin-Miller test.
@@ -1088,12 +1094,12 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
     // Increasing HowMany increases the probability that it's a prime.
     return true;
     }
-
+    */
 
 
   // http://en.wikipedia.org/wiki/Primality_test
   // http://en.wikipedia.org/wiki/Fermat_primality_test
-
+  /*
   internal bool IsFermatPrimeForOneValue( ChineseRemainder CRTToTest, uint Base  )
     {
     // This won't catch Carmichael numbers.
@@ -1133,7 +1139,7 @@ CRTBaseModArray doesn't have the pattern of zeros down to the end like in CRTBas
       return false; // It is _definitely_ a composite number.
 
     }
-
+    */
 
 
   }
