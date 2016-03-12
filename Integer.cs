@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 // These ideas mainly come from a set of books written by Donald Knuth
@@ -796,7 +796,7 @@ namespace ExampleServer
       if( D[Count] != 0 )
         break;
       else
-        throw( new Exception( "How often does this happen with the top being zero?" ));
+        throw( new Exception( "Bug because GetNonZeroBytes() was used to get these bytes." ));
 
       Index--;
       if( Index == 0 )
