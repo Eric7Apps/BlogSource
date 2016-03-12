@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 using System;
@@ -17,6 +17,12 @@ using System.Globalization;
 using System.Diagnostics; // For start program process.
 using System.Security.Cryptography;
 
+
+// System.Windows.Controls; ViewPort3D
+// System.Windows.Media.Media3D.MeshGeometry3D
+// System.Windows.Media
+
+
 // CryptoGraphic Services:
 // https://msdn.microsoft.com/en-us/library/92f9ye3s%28v=vs.110%29.aspx
 // using System.Net.Security; // SslStream
@@ -30,7 +36,7 @@ namespace ExampleServer
 {
   public partial class MainForm : Form
   {
-  internal const string VersionDate = "12/8/2015";
+  internal const string VersionDate = "3/12/2016";
   internal const int VersionNumber = 09; // 0.9
   internal const string MessageBoxTitle = "Eric's Example Server";
   private System.Threading.Mutex SingleInstanceMutex = null;
@@ -51,9 +57,10 @@ namespace ExampleServer
   private RNGCryptoServiceProvider CryptoRand;
   private MakeRSAKeysForm MakeKeysForm;
   private QuadResSearchForm QuadResForm;
-
   private LowExponentSecurityForm LowExponentForm;
   private bool Cancelled = false;
+  private FactorDictionary FactorDictionary1;
+
 
 
   public MainForm()
@@ -72,6 +79,8 @@ namespace ExampleServer
 
     NetStats = new NetIPStatus( this );
     NetStats.ReadFromFile();
+
+    FactorDictionary1 = new FactorDictionary( this );
 
     LaPlataData1 = new LaPlataData( this );
     WebFData = new WebFilesData( this );
@@ -721,6 +730,29 @@ namespace ExampleServer
 
     QuadResForm.FoundSolutionShutDown( ProcessName, SolutionP, SolutionQ );
     }
+
+
+
+  internal void AddToFactorDictionary( string ToAdd )
+    {
+    FactorDictionary1.AddDelimString( ToAdd );
+    }
+
+
+
+  internal void FactorDictSetProduct( string ProductS )
+    {
+    FactorDictionary1.SetProduct( ProductS );
+    }
+
+
+
+  private void factorDictionaryToolStripMenuItem_Click( object sender, EventArgs e )
+    {
+    FactorDictionary1.FindFactors();
+
+    }
+
 
 
   }
