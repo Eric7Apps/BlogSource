@@ -1,6 +1,7 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
+
 
 
 using System;
@@ -16,7 +17,7 @@ namespace ExampleServer
     {
     internal int Value; // Digit value.
     // The BaseMultiple gives these numbers magnitude.
-    internal int BaseMultiple;
+    // internal int BaseMultiple;
     }
 
 
@@ -31,7 +32,6 @@ namespace ExampleServer
   // it was done consistently throughout this number system.
   // So for example SetFromTraditionalInteger() would still work
   // with some other arbitrary order of primes.
-  // See also CRTMath.SetupBaseArray() for more info on that.
 
 
   class ChineseRemainder
@@ -45,11 +45,11 @@ namespace ExampleServer
   internal const int DigitsArraySize = Integer.DigitArraySize * 2;
 
 
-  /*
+
   private ChineseRemainder()
     {
     }
-    */
+
 
 
   internal ChineseRemainder( IntegerMath UseIntMath )
@@ -84,7 +84,7 @@ namespace ExampleServer
     }
 
 
-
+  /*
   internal void SetBaseMultiple( int SetTo, int Index )
     {
     if( Index >= DigitsArraySize )
@@ -92,9 +92,9 @@ namespace ExampleServer
 
     DigitsArray[Index].BaseMultiple = SetTo;
     }
+    */
 
-
-
+  /*
   internal int GetBaseMultiple( int Index )
     {
     if( Index >= DigitsArraySize )
@@ -102,19 +102,19 @@ namespace ExampleServer
 
     return DigitsArray[Index].BaseMultiple;
     }
+    */
 
 
-
+  /*
   internal void SetAllBaseMultiplesToZero()
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
       DigitsArray[Count].BaseMultiple = 0;
 
     }
+    */
 
-
-
-
+  /*
   internal bool ParamIsGreater( ChineseRemainder ToCheck )
     {
     for( int Count = DigitsArraySize - 1; Count >= 0; Count-- )
@@ -138,7 +138,7 @@ namespace ExampleServer
 
     return false; // It's equal but not greater.
     }
-
+    */
 
 
   internal void SetToZero()
@@ -191,7 +191,7 @@ namespace ExampleServer
     for( int Count = 0; Count < DigitsArraySize; Count++ )
       {
       DigitsArray[Count].Value = ToCopy.DigitsArray[Count].Value;
-      DigitsArray[Count].BaseMultiple = ToCopy.DigitsArray[Count].BaseMultiple;
+      // DigitsArray[Count].BaseMultiple = ToCopy.DigitsArray[Count].BaseMultiple;
       }
     }
 
@@ -272,6 +272,7 @@ namespace ExampleServer
     }
 
 
+  // Copyright Eric Chauvin.
   internal void Multiply( ChineseRemainder ToMul )
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
@@ -287,7 +288,7 @@ namespace ExampleServer
 
 
 
-  internal void SetFromTraditionalInteger( Integer SetFrom, IntegerMath IntMath )
+  internal void SetFromTraditionalInteger( Integer SetFrom )
     {
     for( int Count = 0; Count < DigitsArraySize; Count++ )
       {
