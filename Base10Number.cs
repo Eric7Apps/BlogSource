@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 using System;
@@ -22,7 +22,7 @@ namespace ExampleServer
   // D[7] = 2;
   // D[8] = 1; // Most significant digit.
 
-  private const int DigitArraySize = Integer.DigitArraySize * (32 / 4);
+  private const int DigitArraySize = 4 * (((1024 * 16) / 32) + 1);
   private int Index = 0;
   private uint[] D;
 
