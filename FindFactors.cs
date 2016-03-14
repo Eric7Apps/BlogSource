@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 using System;
@@ -126,7 +126,6 @@ namespace ExampleServer
 
 
 
-
   private void AddToStats( uint Prime )
     {
     if( StatsDictionary.ContainsKey( Prime ))
@@ -136,6 +135,63 @@ namespace ExampleServer
 
     }
 
+
+
+  internal void FindSmallPrimeFactorsOnly( Integer FindFromNotChanged )
+    {
+    OriginalFindFrom.Copy( FindFromNotChanged );
+    FindFrom.Copy( FindFromNotChanged );
+    ClearFactorsArray();
+    Integer OneFactor;
+    OneFactorRec Rec;
+
+    // while( not forever )
+    for( int Count = 0; Count < 1000; Count++ )
+      {
+      if( Worker.CancellationPending )
+        return;
+
+      uint SmallPrime = IntMath.IsDivisibleBySmallPrime( FindFrom );
+      if( SmallPrime == 0 )
+        break; // No more small primes.
+
+      // Worker.ReportProgress( 0, "Found a small prime factor: " + SmallPrime.ToString() );
+      OneFactor = new Integer();
+      OneFactor.SetFromULong( SmallPrime );
+      Rec = new OneFactorRec();
+      Rec.Factor = OneFactor;
+      Rec.IsDefinitelyAPrime = true;
+      AddFactorRec( Rec );
+      if( FindFrom.IsULong())
+        {
+        ulong CheckLast = FindFrom.GetAsULong();
+        if( CheckLast == SmallPrime )
+          {
+          // Worker.ReportProgress( 0, "It only had small prime factors." );
+          VerifyFactors();
+          return; // It had only small prime factors.
+          }
+        }
+
+      IntMath.Divide( FindFrom, OneFactor, Quotient, Remainder );
+      if( !Remainder.IsZero())
+        throw( new Exception( "Bug in FindSmallPrimeFactorsOnly(). Remainder is not zero." ));
+
+      FindFrom.Copy( Quotient );
+      if( FindFrom.IsOne())
+        throw( new Exception( "Bug in FindSmallPrimeFactorsOnly(). This was already checked for 1." ));
+
+      }
+
+    // Worker.ReportProgress( 0, "One factor was not a small prime." );
+    OneFactor = new Integer();
+    OneFactor.Copy( FindFrom );
+    Rec = new OneFactorRec();
+    Rec.Factor = OneFactor;
+    AddFactorRec( Rec );
+
+    // Worker.ReportProgress( 0, "No more small primes." );
+    }
 
 
 
@@ -248,10 +304,13 @@ namespace ExampleServer
     // small enough to factor.
     Integer P = new Integer();
     Integer Q = new Integer();
-    bool TestedAllTheWay = FindTwoFactorsWithFermat( FindFrom, P, Q );
+    bool TestedAllTheWay = FindTwoFactorsWithFermat( FindFrom, P, Q, 0 );
 
     if( !P.IsZero())
       {
+      // Q is necessarily prime because it's bigger than the square root.
+      // But P is not necessarily prime.
+      // P is the smaller one, so add it first.
       if( IsFermatPrimeAdded( P ))
         {
         Worker.ReportProgress( 0, "P from Fermat method was probably a prime." );
@@ -262,23 +321,17 @@ namespace ExampleServer
         OneFactor.Copy( P );
         Rec = new OneFactorRec();
         Rec.Factor = OneFactor;
-        // Rec.IsDefinitelyNotAPrime =
+        Rec.IsDefinitelyNotAPrime = true;
         AddFactorRec( Rec );
         }
 
-      if( IsFermatPrimeAdded( Q ))
-        {
-        Worker.ReportProgress( 0, "Q from Fermat method was probably a prime." );
-        }
-      else
-        {
-        OneFactor = new Integer();
-        OneFactor.Copy( Q );
-        Rec = new OneFactorRec();
-        Rec.Factor = OneFactor;
-        // Rec.IsDefinitelyNotAPrime =
-        AddFactorRec( Rec );
-        }
+      Worker.ReportProgress( 0, "Q is necessarily prime." );
+      OneFactor = new Integer();
+      OneFactor.Copy( Q );
+      Rec = new OneFactorRec();
+      Rec.Factor = OneFactor;
+      Rec.IsDefinitelyAPrime = true;
+      AddFactorRec( Rec );
       }
     else
       {
@@ -369,7 +422,7 @@ namespace ExampleServer
 
 
 
-  internal void SetupDivisionArray()
+  private void SetupDivisionArray()
     {
     // If you were going to try and find the prime factors of a number,
     // the most basic way would be to divide it by every prime up to the
@@ -585,8 +638,11 @@ namespace ExampleServer
 
 
 
-  internal bool FindTwoFactorsWithFermat( Integer Product, Integer P, Integer Q )
+  internal bool FindTwoFactorsWithFermat( Integer Product, Integer P, Integer Q, ulong MinimumX )
     {
+    ECTime StartTime = new ECTime();
+    StartTime.SetToNow();
+
     Integer TestSqrt = new Integer();
     Integer TestSquared = new Integer();
     Integer SqrRoot = new Integer();
@@ -609,18 +665,23 @@ namespace ExampleServer
     Integer TestX = new Integer();
     SetupQuadResArray( Product );
 
-    // ulong BaseTo37 = QuadResBigBase * 29UL * 31UL * 37UL;
-    ulong BaseTo31 = QuadResBigBase * 29UL * 31UL;
-    // ulong ProdModTo37 = IntMath.GetMod64( Product, BaseTo37 );
-    ulong ProdModTo31 = IntMath.GetMod64( Product, BaseTo31 );
-    // for( ulong BaseCount = 0; BaseCount < (29 * 31 * 37); BaseCount++ )
-    for( ulong BaseCount = 0; BaseCount < (29 * 31); BaseCount++ )
+    ulong BaseTo37 = QuadResBigBase * 29UL * 31UL * 37UL;
+    // ulong BaseTo31 = QuadResBigBase * 29UL * 31UL;
+    ulong ProdModTo37 = IntMath.GetMod64( Product, BaseTo37 );
+    // ulong ProdModTo31 = IntMath.GetMod64( Product, BaseTo31 );
+    for( ulong BaseCount = 0; BaseCount < (29 * 31 * 37); BaseCount++ )
       {
-      Worker.ReportProgress( 0, "Find with Fermat BaseCount: " + BaseCount.ToString() );
+      if( (BaseCount & 0xF) == 0 )
+        Worker.ReportProgress( 0, "Find with Fermat BaseCount: " + BaseCount.ToString() );
+
       if( Worker.CancellationPending )
         return false;
 
-      ulong Base = BaseCount * QuadResBigBase; // BaseCount times 223,092,870.
+      ulong Base = (BaseCount + 1) * QuadResBigBase; // BaseCount times 223,092,870.
+      if( Base < MinimumX )
+        continue;
+
+      Base = BaseCount * QuadResBigBase; // BaseCount times 223,092,870.
       for( uint Count = 0; Count < QuadResArrayLast; Count++ )
         {
         // The maximum CountPart can be is just under half the size of
@@ -628,18 +689,18 @@ namespace ExampleServer
         // equal to the Product.)  If it got anywhere near that big it
         // would be inefficient to try and find it this way.
         ulong CountPart = Base + QuadResArray[Count];
-        // ulong Test = ProdModTo37 + (CountPart * CountPart);
-        ulong Test = ProdModTo31 + (CountPart * CountPart);
-        // Test = Test % BaseTo37;
-        Test = Test % BaseTo31;
+        ulong Test = ProdModTo37 + (CountPart * CountPart);
+        // ulong Test = ProdModTo31 + (CountPart * CountPart);
+        Test = Test % BaseTo37;
+        // Test = Test % BaseTo31;
         if( !IntegerMath.IsQuadResidue29( Test ))
           continue;
 
         if( !IntegerMath.IsQuadResidue31( Test ))
           continue;
 
-        // if( !IntegerMath.IsQuadResidue37( Test ))
-          // continue;
+        if( !IntegerMath.IsQuadResidue37( Test ))
+          continue;
 
         ulong TestBytes = (CountPart & 0xFFFFF);
         TestBytes *= (CountPart & 0xFFFFF);
@@ -658,9 +719,9 @@ namespace ExampleServer
         IntMath.MultiplyULong( TestX, CountPart );
         TestX.Add( Product );
 
-        uint Mod37 = (uint)IntMath.GetMod32( TestX, 37 );
-        if( !IntegerMath.IsQuadResidue37( Mod37 ))
-          continue;
+        // uint Mod37 = (uint)IntMath.GetMod32( TestX, 37 );
+        // if( !IntegerMath.IsQuadResidue37( Mod37 ))
+          // continue;
 
         // Do more of these tests with 41, 43, 47...
         // if( !IntegerMath.IsQuadResidue41( Mod37 ))
@@ -680,12 +741,13 @@ namespace ExampleServer
           // P = (Y + CountPart)Y - CountPart)
 
           P.Copy( SqrRoot );
-          P.AddULong( CountPart );
-
-          Q.Copy( SqrRoot );
           Integer ForSub = new Integer();
           ForSub.SetFromULong( CountPart );
-          IntMath.Subtract( Q, ForSub );
+          IntMath.Subtract( P, ForSub );
+
+          // Make Q the bigger one and put them in order.
+          Q.Copy( SqrRoot );
+          Q.AddULong( CountPart );
 
           if( P.IsOne() || Q.IsOne())
             {
@@ -702,6 +764,7 @@ namespace ExampleServer
 
           Worker.ReportProgress( 0, "Found P: " + IntMath.ToString10( P ) );
           Worker.ReportProgress( 0, "Found Q: " + IntMath.ToString10( Q ) );
+          Worker.ReportProgress( 0, "Seconds: " + StartTime.GetSecondsToNow().ToString( "N1" ));
           Worker.ReportProgress( 0, " " );
           throw( new Exception( "Testing this." ));
           // return true; // With P and Q.
