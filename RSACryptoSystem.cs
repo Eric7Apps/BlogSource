@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 // See RSA Cryptosystem:
@@ -179,7 +179,7 @@ namespace ExampleServer
     }
     catch( Exception Except )
       {
-      Worker.ReportProgress( 0, "Error in MakeAPrime()." );
+      Worker.ReportProgress( 0, "Error in MakeAPrime()" );
       Worker.ReportProgress( 0, Except.Message );
       return false;
       }
@@ -275,7 +275,7 @@ namespace ExampleServer
         }
 
       // For Modular Reduction.
-      IntMath.SetupBaseArrays( PrimeP, PrimeQ, Worker );
+      IntMath.IntMathNew.SetupBaseArrays( PrimeP, PrimeQ, Worker );
 
       PrimePMinus1.Copy( PrimeP );
       IntMath.SubtractULong( PrimePMinus1, 1 );
@@ -362,7 +362,7 @@ namespace ExampleServer
       // e mod PhiN.  Which is mod (P - 1)(Q - 1).  It's called
       // PrivKInverseExponent here.
 
-      if( !IntMath.FindMultiplicativeInverseSmall( PrivKInverseExponent, PubKeyExponent, PhiN, Worker ))
+      if( !IntMath.IntMathNew.FindMultiplicativeInverseSmall( PrivKInverseExponent, PubKeyExponent, PhiN, Worker ))
         return;
 
       if( PrivKInverseExponent.IsZero())
@@ -374,14 +374,10 @@ namespace ExampleServer
       if( Worker.CancellationPending )
         return;
 
-    // PrivKInverseExponentDP is congruent to PrivKInverseExponent mod PrimePMinus1.
-    // Or it's equal to it?
-
-
       // In RFC 2437 it defines a number dP which is the multiplicative
       // inverse, mod (P - 1) of e.  That dP is named PrivKInverseExponentDP here.
       Worker.ReportProgress( 0, " " );
-      if( !IntMath.FindMultiplicativeInverseSmall( PrivKInverseExponentDP, PubKeyExponent, PrimePMinus1, Worker ))
+      if( !IntMath.IntMathNew.FindMultiplicativeInverseSmall( PrivKInverseExponentDP, PubKeyExponent, PrimePMinus1, Worker ))
         return;
 
       Worker.ReportProgress( 0, " " );
@@ -403,7 +399,7 @@ namespace ExampleServer
       // In RFC 2437 it defines a number dQ which is the multiplicative
       // inverse, mod (Q - 1) of e.  That dQ is named PrivKInverseExponentDQ here.
       Worker.ReportProgress( 0, " " );
-      if( !IntMath.FindMultiplicativeInverseSmall( PrivKInverseExponentDQ, PubKeyExponent, PrimeQMinus1, Worker ))
+      if( !IntMath.IntMathNew.FindMultiplicativeInverseSmall( PrivKInverseExponentDQ, PubKeyExponent, PrimeQMinus1, Worker ))
         return;
 
       if( PrivKInverseExponentDQ.IsZero())
@@ -444,7 +440,7 @@ namespace ExampleServer
       Worker.ReportProgress( 0, "Before encrypting number: " + IntMath.ToString10( ToEncrypt ));
       Worker.ReportProgress( 0, " " );
 
-      IntMath.ModularPower( ToEncrypt, PubKeyExponent, PubKeyN );
+      IntMath.IntMathNew.ModularPower( ToEncrypt, PubKeyExponent, PubKeyN );
       if( Worker.CancellationPending )
         return;
 
@@ -459,7 +455,7 @@ namespace ExampleServer
 
       ECTime DecryptTime = new ECTime();
       DecryptTime.SetToNow();
-      IntMath.ModularPower( ToEncrypt, PrivKInverseExponent, PubKeyN );
+      IntMath.IntMathNew.ModularPower( ToEncrypt, PrivKInverseExponent, PubKeyN );
       Worker.ReportProgress( 0, "Decrypted number: " + IntMath.ToString10( ToEncrypt ));
 
       if( !PlainTextNumber.IsEqual( ToEncrypt ))
@@ -484,7 +480,7 @@ namespace ExampleServer
         }
 
       PlainTextNumber.Copy( ToEncrypt );
-      IntMath.ModularPower( ToEncrypt, PubKeyExponent, PubKeyN );
+      IntMath.IntMathNew.ModularPower( ToEncrypt, PubKeyExponent, PubKeyN );
       if( Worker.CancellationPending )
         return;
 
@@ -523,6 +519,7 @@ namespace ExampleServer
       Worker.ReportProgress( 1, "PrivKInverseExponent: " + IntMath.ToString10( PrivKInverseExponent ));
 
       Worker.ReportProgress( 0, " " );
+
       // return; // Comment this out to just leave it while( true ) for testing.
       }
     }
@@ -558,7 +555,7 @@ namespace ExampleServer
 
     //      2.2 Let m_1 = c^dP mod p.
     TestForDecrypt.Copy( EncryptedNumber );
-    IntMath.ModularPowerModPrimeP( TestForDecrypt, PrivKInverseExponentDP, PrimeP );
+    IntMath.IntMathNew.ModularPowerModPrimeP( TestForDecrypt, PrivKInverseExponentDP, PrimeP );
     if( Worker.CancellationPending )
       return false;
 
@@ -566,7 +563,7 @@ namespace ExampleServer
 
     //      2.3 Let m_2 = c^dQ mod q.
     TestForDecrypt.Copy( EncryptedNumber );
-    IntMath.ModularPowerModPrimeQ( TestForDecrypt, PrivKInverseExponentDQ, PrimeQ );
+    IntMath.IntMathNew.ModularPowerModPrimeQ( TestForDecrypt, PrivKInverseExponentDQ, PrimeQ );
 
     if( Worker.CancellationPending )
       return false;
