@@ -37,6 +37,7 @@ namespace ExampleServer
   private bool Cancelled = false;
   private QuadResCombinBackground[] QuadResCombinBackgArray;
   private RSACryptoBackground RSACryptoBack;
+  private ExpVectorBackground[] ExpVectorArray;
 
 
   private QuadResSearchForm()
@@ -68,31 +69,44 @@ namespace ExampleServer
     // string PubKey =                 "28,569,209,393,580,650,250,552,443";
     // string PubKey =              "1,646,567,279,211,844,205,225,474,329";
 
-
-    // Process 1) Hours: 0  Minutes: 37  Seconds: 60
+    // Process 0) Hours: 0  Minutes: 27  Seconds: 8
+    // Four cores. Process 1) Hours: 0  Minutes: 25  Seconds: 10
     // SolutionP: 35,138,851,773,149
     // SolutionQ: 61,800,192,159,577
+    // To 12.
     // string PubKey =              "2,171,587,791,847,501,194,011,797,973";   // To 12.
 
-    // Process 0) Hours: 0  Minutes: 17  Seconds: 11
+    // Process 0) Hours: 0  Minutes: 10  Seconds: 47
     // SolutionP: 42,244,231,868,831
     // SolutionQ: 228,244,523,296,981
     // string PubKey =              "9,642,014,564,948,464,387,250,299,211";
 
+    // Process 0) Hours: 0  Minutes: 24  Seconds: 26
+    //            123 456 789 012 345
+    // SolutionP: 135,206,875,645,343
+    // SolutionQ: 233,212,212,644,977
+    // string PubKey =             "31,531,894,634,064,693,561,822,392,111";
 
-    string PubKey =             "31,531,894,634,064,693,561,822,392,111";
- 
+    // Process 1) Hours: 0  Minutes: 4  Seconds: 1
+    // Process 1) Hours: 0  Minutes: 3  Seconds: 39
+    // SolutionP: 210,661,490,216,893
+    // SolutionQ: 268,137,318,741,769
     // string PubKey =             "56,486,207,148,903,090,249,668,503,717";
+
+    // Process 0) Hours: 0  Minutes: 7  Seconds: 21
+    // SolutionP: 939,837,758,391,053
+    // SolutionQ: 962,532,058,238,111
     //                                         1            2            3
     //                             123 456 789 012 345 678 901 234 567 890
-    // string PubKey =            "904,623,971,994,032,721,365,326,020,883";  // To 12
+    // string PubKey =            "904,623,971,994,032,721,365,326,020,883";
 
 
     // There are 8,760 hours per year.
-    // Process 1) Hours: 1  Minutes: 24  Seconds: 21
+    // Process 1) Hours: 1  Minutes: 6  Seconds: 14
     // SolutionP: 3,578,462,858,032,427
     // SolutionQ: 4,297,023,441,740,867
-    // string PubKey =         "15,376,738,786,364,358,999,363,217,094,209";  // To 13
+    // To 13:
+    string PubKey =         "15,376,738,786,364,358,999,363,217,094,209";  // To 13
 
 
     // string PubKey =         "16,682,443,477,710,019,133,059,293,108,983";
@@ -101,12 +115,18 @@ namespace ExampleServer
     // string PubKey =     "14,887,421,987,705,857,342,258,870,638,793,433";
     // string PubKey =     "23,315,998,853,571,458,231,621,674,575,432,869";
     // string PubKey =    "356,119,202,246,235,087,093,109,209,643,317,503";
-    // string PubKey =  "2,322,646,449,067,527,436,179,659,402,038,526,369";
 
+    // string PubKey =  "2,322,646,449,067,527,436,179,659,402,038,526,369";
 
     //                              1            2             3            4
     //                  12 345 678 901 234 567 890 123 456 789 012 345 678
     // string PubKey = "31,812,176,461,304,096,446,192,328,013,544,627,573";
+
+    // string PubKey = "966,789,092,655,927,565,959,398,119,581,788,384," +
+    //                "187,305,048,744,308,467,677";
+
+    // string PubKey = "3,624,234,739,637,352,431,468,730,305,176,365,190," +
+    //                "269,947,830,981,235,062,150,834,495,522,126,114,009";
 
 
     // RSA-100 is 100 digits.
@@ -127,8 +147,13 @@ namespace ExampleServer
            "120720357";
       */
 
-    // Four threads:
-    QuadResCombinBackgArray = new QuadResCombinBackground[4];
+    MForm.FactorDictSetProduct( PubKey );
+
+    // Three threads to run on 4 cores. My laptop has
+    // two cores, where each core has one virtual core,
+    // so its 4 logical cores.
+    QuadResCombinBackgArray = new QuadResCombinBackground[3];
+    // ExpVectorArray = new ExpVectorBackground[3];
 
     // Some primes:
     // 0  1  2  3   4   5   6   7   8   9  10  11  12  13  14  15
@@ -149,10 +174,19 @@ namespace ExampleServer
     //  66   67   68   69   70   71   72   73   74   75   76   77
     // 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397,
 
+    /*
+    QuadResWorkerInfo WInfo = new QuadResWorkerInfo();
+    WInfo.PublicKeyModulus = PubKey;
+    WInfo.ModMask = 1;
+    WInfo.ProcessName = "Process 0";
+    ExpVectorArray[0] = new ExpVectorBackground( MForm, WInfo );
+    ShowStatus( "Starting background process at: 0" );
+    ExpVectorArray[0].RunWorkerAsync( WInfo );
+    */
 
     QuadResWorkerInfo WInfo = new QuadResWorkerInfo();
     WInfo.PublicKeyModulus = PubKey;
-    WInfo.ModMask = 0;
+    WInfo.ModMask = 0; // ModMask tells it what partition to check.
     WInfo.ProcessName = "Process 0";
     QuadResCombinBackgArray[0] = new QuadResCombinBackground( MForm, WInfo );
     ShowStatus( "Starting background process at: 0" );
@@ -180,7 +214,7 @@ namespace ExampleServer
     ShowStatus( "Starting background process at: 2" );
     QuadResCombinBackgArray[2].RunWorkerAsync( WInfo );
 
-
+    /*
     ////////
     WInfo = new QuadResWorkerInfo();
     WInfo.PublicKeyModulus = PubKey;
@@ -190,7 +224,7 @@ namespace ExampleServer
     QuadResCombinBackgArray[3] = new QuadResCombinBackground( MForm, WInfo );
     ShowStatus( "Starting background process at: 3" );
     QuadResCombinBackgArray[3].RunWorkerAsync( WInfo );
-
+    */
     }
     catch( Exception Except )
       {
@@ -241,6 +275,33 @@ namespace ExampleServer
       catch( Exception Except )
         {
         ShowStatus( "Exception for QuadResCombinBackgArray[] on closing:\r\n" + Except.Message );
+        }
+      }
+
+
+    if( ExpVectorArray != null )
+      {
+      try
+      {
+      for( int Count = 0; Count < ExpVectorArray.Length; Count++ )
+        {
+        if( ExpVectorArray[Count] == null )
+          continue;
+
+        if( ExpVectorArray[Count].IsBusy )
+          {
+          if( !ExpVectorArray[Count].CancellationPending )
+            ExpVectorArray[Count].CancelAsync();
+
+          }
+
+        ExpVectorArray[Count].Dispose();
+        ExpVectorArray[Count] = null;
+        }
+      }
+      catch( Exception Except )
+        {
+        ShowStatus( "Exception for ExpVectorArray[] on closing:\r\n" + Except.Message );
         }
       }
     }
