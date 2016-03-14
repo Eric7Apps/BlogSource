@@ -114,8 +114,12 @@ namespace ExampleServer
       // return "127.0.0.1"; // For testing with local loopback.
       // return "promocodeclub.com"; // Good for testing X.509.
       // return "durangoherald.com"; They don't have HTTPS on this domain.
+      // return "https://secure.ballantinecommunications.net";
       // return "schneier.com"; //  Bruce Schneier, the cryptographer.
-      return Rec.DomainName;
+      return "https://www.vantiv.com/developers/articles/developer-lounge";
+
+
+      // return Rec.DomainName;
       }
 
     return ""; // It shouldn't get here.
