@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 
