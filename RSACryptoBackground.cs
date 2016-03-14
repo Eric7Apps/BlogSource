@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 using System;
@@ -15,8 +15,8 @@ namespace ExampleServer
   class RSACryptoBackground : BackgroundWorker
   {
   private MainForm MForm;
-  private string SolutionP = "";
-  private string SolutionQ = "";
+  // private string SolutionP = "";
+  // private string SolutionQ = "";
   private string ProcessName = "No Name";
 
 
