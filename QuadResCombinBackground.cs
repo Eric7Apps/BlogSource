@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 using System;
@@ -61,7 +61,7 @@ namespace ExampleServer
       }
 
     QuadResCombinatorics QuadResCombin = new QuadResCombinatorics( WInfo, Worker );
-    QuadResCombin.FindFactors();
+    QuadResCombin.FindTheFactors();
 
     SolutionP = QuadResCombin.GetSolutionPString();
     SolutionQ = QuadResCombin.GetSolutionQString();
