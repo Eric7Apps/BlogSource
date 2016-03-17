@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 using System;
 using System.Collections.Generic;
@@ -113,10 +113,9 @@ namespace ExampleServer
 
       // return "127.0.0.1"; // For testing with local loopback.
       // return "promocodeclub.com"; // Good for testing X.509.
-      // return "durangoherald.com"; They don't have HTTPS on this domain.
-      // return "https://secure.ballantinecommunications.net";
+      return "secure.ballantinecommunications.net";
       // return "schneier.com"; //  Bruce Schneier, the cryptographer.
-      return "https://www.vantiv.com/developers/articles/developer-lounge";
+      // return "vantiv.com";
 
 
       // return Rec.DomainName;
