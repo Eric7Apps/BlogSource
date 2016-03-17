@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 using System;
@@ -123,6 +123,7 @@ namespace ExampleServer
     StatusString += "Index after loop is: " + Index.ToString() + "\r\n";
     return -1;
     }
+
 
 
   private void ShowBytesInBuffer( byte[] Buffer, int Last )
