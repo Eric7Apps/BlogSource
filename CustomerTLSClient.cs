@@ -228,7 +228,6 @@ namespace ExampleServer
 
 
 
-
   internal bool SendBuffer( byte[] Buffer )
     {
     if( IsShutDown())
