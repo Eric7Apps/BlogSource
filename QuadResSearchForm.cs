@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 using System;
@@ -101,6 +101,7 @@ namespace ExampleServer
     // string PubKey =            "904,623,971,994,032,721,365,326,020,883";
 
 
+    // Process 1) Hours: 1  Minutes: 33  Seconds: 57
     // There are 8,760 hours per year.
     // Process 1) Hours: 1  Minutes: 6  Seconds: 14
     // SolutionP: 3,578,462,858,032,427
