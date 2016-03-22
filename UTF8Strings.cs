@@ -1,10 +1,13 @@
 // Programming by Eric Chauvin.
+// Notes on this source code are at:
+// ericbreakingrsa.blogspot.com
+
 
 using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
+// using System.Windows.Forms;
 
 
 
@@ -34,13 +37,6 @@ namespace ExampleServer
 
     if( InString.Length == 0 )
       return null;
-
-    // UTF-16 is "either one or two 16-bit code _units_ per code point.
-    // One Char in a Windows string is a code unit.
-
-    // But "All code points in the BMP are accessed as a single code unit
-    // in UTF-16 encoding and can be encoded in one, two or three bytes in
-    // UTF-8". 
 
     // Bits
     //  7 	U+007F 	0xxxxxxx
@@ -76,8 +72,9 @@ namespace ExampleServer
       if( Character >= 0xD800 ) // High Surrogates
         {
         // Result[Where] = (byte)'#'; // Ignore anything above high surrogates. 
-        Where++;
-        continue;
+        // Where++;
+        // continue;
+        break; // This should have been cleaned out already.
         }
 
       // "the first byte unambiguously indicates the length of the
@@ -154,9 +151,7 @@ namespace ExampleServer
     if( MaxLen > InBytes.Length )
       MaxLen = InBytes.Length;
 
-    // The constructor has a "suggested capacity" value to start with.
     StringBuilder SBuilder = new StringBuilder( MaxLen );
-    // for( int Count = 0; Count < InBytes.Length; Count++ )
     for( int Count = 0; Count < MaxLen; Count++ )
       {
       if( InBytes[Count] == 0 )
