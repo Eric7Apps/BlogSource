@@ -461,7 +461,7 @@ namespace ExampleServer
     // The last one should have an array that is
     // as large as possible because of
     // IncrementDigitsWithBitTest().
-    MakeQuadResDigitsArrayRec( 3, 11, 13 );
+    MakeQuadResDigitsArrayRec( 3, 11, 12 );
     if( Worker.CancellationPending )
       return false;
 
