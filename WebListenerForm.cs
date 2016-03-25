@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 using System;
 using System.Collections.Generic;
@@ -140,7 +140,7 @@ namespace ExampleServer
       return false;
       }
 
-    CheckTimer.Interval = 50;
+    CheckTimer.Interval = 200; // 50;
     CheckTimer.Start();
     IsEnabled = true;
     // StartTimeCheck();
@@ -663,12 +663,6 @@ namespace ExampleServer
         continue;
         }
 
-      // In 2003, the .ico format was registered with the Internet Assigned Numbers
-      // Authority (IANA) under the MIME type image/vnd.microsoft.icon.[12] Ironically,
-      // when using the .ico format to display as images (e.g. not as favicon), Internet
-      // Explorer cannot display files served with this standardized MIME type. A workaround
-      // for Internet Explorer is to associate .ico with the non-standard image/x-icon MIME
-      // type in Web servers
       if( FileName == "favicon.ico" )
         {
         Clients[Count].SendGenericWebResponse( Buffer, RightNow.GetIndex(), UniqueEntityTag, "image/vnd.microsoft.icon" );
@@ -758,8 +752,6 @@ namespace ExampleServer
       }
 
     // System.Net.Dns
-
-    // http://54.201.164.92
 
     // http://stackoverflow.com/questions/716748/reverse-
     IPAddress addr = IPAddress.Parse( WInfo.IP );
