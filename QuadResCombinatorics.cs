@@ -266,7 +266,7 @@ namespace ExampleServer
     Result.Copy( Product );
     Modulus.SetFromULong( Prime );
 
-    IntMath.IntMathNew.ModularPower( Result, Exponent, Modulus );
+    IntMath.IntMathNew.ModularPower( Result, Exponent, Modulus, false );
     if( Result.IsOne() )
       return true;
     else
