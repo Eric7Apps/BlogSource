@@ -2532,8 +2532,6 @@ namespace ExampleServer
         }
       }
 
-    //    X           T0      modulus        T1     Remainder
-    // 384,821   *  183,637 + 386,093 *   -183,032 = 1
     MultInverse.Copy( T0 );
     if( MultInverse.IsNegative )
       {
@@ -2587,7 +2585,7 @@ namespace ExampleServer
   // http://en.wikipedia.org/wiki/Primality_test
   // http://en.wikipedia.org/wiki/Fermat_primality_test
 
-  internal bool IsFermatPrimeForOneValue( Integer ToTest, ulong Base  )
+  internal bool IsFermatPrimeForOneValue( Integer ToTest, ulong Base )
     {
     // This won't catch Carmichael numbers.
     // http://en.wikipedia.org/wiki/Carmichael_number
@@ -2604,20 +2602,15 @@ namespace ExampleServer
     // Fermat's little theorem:
     // A ^ (P - 1) is congruent to 1 mod P if P is a prime.
     // Or: A^P - A is congrunt to A mod P.
-    // If you multiply A by itself P times then divide it by P, 
+    // If you multiply A by itself P times then divide it by P,
     // the remainder is A.  (A^P / P)
     // 5^3 = 125.  125 - 5 = 120.  A multiple of 5.
     // 2^7 = 128.  128 - 2 = 7 * 18 (a multiple of 7.)
 
-    // Fermat1.Copy( ToTest );
-    // SubtractULong( Fermat1, 1 );
-    // Fermat2.SetFromULong( Base );
-    // ModularPowerOld( Fermat2, Fermat1, ToTest );
-
     Fermat1.Copy( ToTest );
     SubtractULong( Fermat1, 1 );
     TestFermat.SetFromULong( Base );
-    IntMathNew.ModularPower( TestFermat, Fermat1, ToTest );
+    IntMathNew.ModularPower( TestFermat, Fermat1, ToTest, false );
     // if( !TestFermat.IsEqual( Fermat2 ))
       // throw( new Exception( "!TestFermat.IsEqual( Fermat2 )." ));
 
