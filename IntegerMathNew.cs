@@ -16,10 +16,7 @@ namespace ExampleServer
   class IntegerMathNew
   {
   private IntegerMath IntMath;
-  private Integer[] BaseArrayP;
-  private Integer[] BaseArrayQ;
   private Integer[] GeneralBaseArray;
-  private Integer[] BaseWorkArray1;
   private Integer Quotient;
   private Integer Remainder;
   private Integer TempForModPower;
@@ -29,6 +26,7 @@ namespace ExampleServer
   private Integer TestForModInverse1;
   private Integer AccumulateBase;
   private int MaxModPowerIndex = 0;
+  // private uint GBaseSmallModulus = 0;
 
 
 
@@ -54,7 +52,7 @@ namespace ExampleServer
   // https://en.wikipedia.org/wiki/Exponentiation_by_squaring
   // x^n = (x^2)^((n - 1)/2) if n is odd.
   // x^n = (x^2)^(n/2)       if n is even.
-  internal void ModularPower( Integer Result, Integer Exponent, Integer Modulus ) // , bool DoQuotientTest )
+  internal void ModularPower( Integer Result, Integer Exponent, Integer Modulus, bool UsePresetBaseArray )
     {
     if( Result.IsZero())
       return; // With Result still zero.
@@ -80,13 +78,14 @@ namespace ExampleServer
       Result.Copy( Remainder );
       }
 
-    if( Exponent.IsEqualToULong( 1 ))
+    if( Exponent.IsOne())
       {
       // Result stays the same.
       return;
       }
 
-    SetupGeneralBaseArray( Modulus );
+    if( !UsePresetBaseArray )
+      SetupGeneralBaseArray( Modulus );
 
     XForModPower.Copy( Result );
     ExponentCopy.Copy( Exponent );
@@ -125,250 +124,154 @@ namespace ExampleServer
     ModularReduction( TempForModPower, Result );
     Result.Copy( TempForModPower );
 
-    /*
-    if( DoQuotientTest )
-      {
-      // Assume I don't know what the quotient is but I want to find
-      // out what it is.  In other words I want to find the complete 
-      // output (before that Divide() happens at the end) of
-      // ModularPower() when I know the CipherText.
-
-      ulong MostQuotientCanPossiblyBe = (ulong)Modulus.GetIndex() * 2;
-      MostQuotientCanPossiblyBe *= 0xFFFFFFFFUL; // Times the most any one digit can be.
-      StatusString += "MostQuotientCanPossiblyBe: " + MostQuotientCanPossiblyBe.ToString( "N0" ) + "\r\n";
-
-      // The idea that a mathematical system is closed under addition and
-      // multiplication is true here, and the point where it gets closed is
-      // at the maximum value of this quotient.
-
-      // The most the quotient could possibly ever be is proportional
-      // to the digit size.  Compare this to the size of the quotient in 
-      // CRTMath.ModularPower().  Also, if you look in the ECInteger.java
-      // file you'll see that it uses 24 bit digits.  Those numbers would
-      // have a smaller quotient here.  And using 16 bit digits would
-      // make this quotient even smaller.  But it requires more
-      // additions and multiplications to be done in ModularReduction().
-      // Using digits of size 0xFFFF means Modulus.GetIndex() is twice
-      // as big.  Four times GetIndex() times 0xFFFF is a much smaller
-      // quotient.
-
-      // Let's just say I got the public key modulus and exponent from the
-      // TLS ServerCertificate message, and I got the
-      // CipherText from the TLS ClientKeyExchange message.
-
-      ECTime FindQuotientTime = new ECTime();
-      FindQuotientTime.SetToNow();
-      Integer ModulusMultiple = new Integer();
-      Integer CipherText = new Integer();
-      Integer ResultBeforeDivide = new Integer();
-
-      ResultBeforeDivide.Copy( Result );
-      Divide( Result, Modulus, Quotient, Remainder );
-
-      // So assume I have the CipherText value, but not the quotient.
-      CipherText.Copy( Remainder );
-
-      // It takes less than one second to find this quotient
-      // in CRTMath.ModularPower().  But by cryptographic standards
-      // for "brute force" this would not take long either.
-      for( ulong Count = 0; Count < MostQuotientCanPossiblyBe; Count++ )
-        {
-        if( Cancelled )
-          break;
-
-        ModulusMultiple.Copy( Modulus );
-        MultiplyULong( ModulusMultiple, Count );
-        ModulusMultiple.Add( CipherText );
-        if( Result.IsEqual( ModulusMultiple ))
-         {
-          StatusString += "\r\n\r\n\r\nFound the quotient matching this CipherText at: " + Count.ToString( "N0" ) + "\r\n";
-          StatusString += "It took " + FindQuotientTime.GetSecondsToNow().ToString( "N1" ) + " seconds to find it.\r\n\r\n\r\n";
-          break;
-          }
-        }
-      }
-    else
-      { */
-      // Get the Quotient and Remainder this way, since I 
-      // know the Result after the modular reductions, and
-      // the Modulus.
-      IntMath.Divide( Result, Modulus, Quotient, Remainder );
-      
-      // }
-
+    IntMath.Divide( Result, Modulus, Quotient, Remainder );
     Result.Copy( Remainder );
+
+    if( Quotient.GetIndex() > 1 )
+      throw( new Exception( "This never happens. The quotient index is never more than 1." ));
+
     }
 
 
 
-  // Reverse this?
-  // internal void ReverseModularPower( Integer Result, Integer Exponent, Integer Modulus )
-  // What does it mean to have a discrete logarithm in
-  // this finite system?
 
-
-
-  // To use when the base array is pre-set for PrimeP.
-  internal void ModularPowerModPrimeP( Integer Result, Integer Exponent, Integer PrimeP )
+  internal uint ModularPowerSmall( ulong Input, Integer Exponent, uint Modulus )
     {
-    if( Result.IsZero())
-      return; // With Result still zero.
+    if( Input == 0 )
+      return 0;
 
-    if( Result.IsEqual( PrimeP ))
+    if( Input == Modulus )
       {
-      // It is congruent to zero % ModN.
-      Result.SetToZero();
-      return;
+      // It is congruent to zero % Modulus.
+      return 0;
       }
 
     // Result is not zero at this point.
     if( Exponent.IsZero() )
-      {
-      Result.SetFromULong( 1 );
-      return;
-      }
+      return 1;
 
-    if( PrimeP.ParamIsGreater( Result ))
-      {
-      IntMath.Divide( Result, PrimeP, Quotient, Remainder );
-      Result.Copy( Remainder );
-      }
+    ulong Result = Input;
+    if( Input > Modulus )
+      Result = Input % Modulus;
 
-    if( Exponent.IsEqualToULong( 1 ))
-      {
-      // Result stays the same.
-      return;
-      }
+    if( Exponent.IsOne())
+      return (uint)Result;
 
-    XForModPower.Copy( Result );
+    ulong XForModPowerU = Result;
     ExponentCopy.Copy( Exponent );
-
     int TestIndex = 0;
-    Result.SetFromULong( 1 );
-    while( !ExponentCopy.IsZero())
-      {
-      if( (ExponentCopy.GetD( 0 ) & 1) == 1 )
-        {
-        IntMath.Multiply( Result, XForModPower );
-        IntMath.SubtractULong( ExponentCopy, 1 );
-        if( PrimeP.ParamIsGreater( Result ))
-          {
-          TestForModPower.Copy( Result );
-          TestIndex = AddByBaseArraysP( TestForModPower, Result );
-          if( TestIndex > MaxModPowerIndex )
-            MaxModPowerIndex = TestIndex;
 
-          Result.Copy( TestForModPower );
-          // Divide( Result, PrimeP, Quotient, Remainder );
-          // Result.Copy( Remainder );
-          }
+    Result = 1;
+    while( true )
+      {
+      if( (ExponentCopy.GetD( 0 ) & 1) == 1 ) // If the bottom bit is 1.
+        {
+        Result = Result * XForModPowerU;
+        Result = Result % Modulus;
         }
+
+      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
+      if( ExponentCopy.IsZero())
+        break;
 
       // Square it.
-      IntMath.Multiply( XForModPower, XForModPower );
-      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
-      if( PrimeP.ParamIsGreater( XForModPower ))
-        {
-        TestForModPower.Copy( XForModPower );
-        TestIndex = AddByBaseArraysP( TestForModPower, XForModPower );
-        if( TestIndex > MaxModPowerIndex )
-          MaxModPowerIndex = TestIndex;
-
-        XForModPower.Copy( TestForModPower );
-        // Divide( XForModPower, PrimeP, Quotient, Remainder );
-        // XForModPower.Copy( Remainder );
-        }
+      XForModPowerU = XForModPowerU * XForModPowerU;
+      XForModPowerU = XForModPowerU % Modulus;
       }
 
-    IntMath.Divide( Result, PrimeP, Quotient, Remainder );
-    Result.Copy( Remainder );
+    return (uint)Result;
     }
 
 
 
-  // To use when the base array is pre-set for PrimeQ.
-  internal void ModularPowerModPrimeQ( Integer Result, Integer Exponent, Integer PrimeQ )
+  // Copyright Eric Chauvin 2015.
+  private int ModularReduction( Integer Result, Integer ToReduce )
     {
-    if( Result.IsZero())
-      return; // With Result still zero.
-
-    if( Result.IsEqual( PrimeQ ))
-      {
-      // It is congruent to zero % ModN.
-      Result.SetToZero();
-      return;
-      }
-
-    // Result is not zero at this point.
-    if( Exponent.IsZero() )
-      {
-      Result.SetFromULong( 1 );
-      return;
-      }
-
-    if( PrimeQ.ParamIsGreater( Result ))
-      {
-      IntMath.Divide( Result, PrimeQ, Quotient, Remainder );
-      Result.Copy( Remainder );
-      }
-
-    if( Exponent.IsEqualToULong( 1 ))
-      {
-      // Result stays the same.
-      return;
-      }
-
-    XForModPower.Copy( Result );
-    ExponentCopy.Copy( Exponent );
-
-    int TestIndex = 0;
-    Result.SetFromULong( 1 );
-    while( !ExponentCopy.IsZero())
-      {
-      if( (ExponentCopy.GetD( 0 ) & 1) == 1 )
-        {
-        IntMath.Multiply( Result, XForModPower );
-        IntMath.SubtractULong( ExponentCopy, 1 );
-        if( PrimeQ.ParamIsGreater( Result ))
-          {
-          TestForModPower.Copy( Result );
-          TestIndex = AddByBaseArraysQ( TestForModPower, Result );
-          if( TestIndex > MaxModPowerIndex )
-            MaxModPowerIndex = TestIndex;
-
-          Result.Copy( TestForModPower );
-          // Divide( Result, PrimeQ, Quotient, Remainder );
-          // Result.Copy( Remainder );
-          }
-        }
-
-      // Square it.
-      IntMath.Multiply( XForModPower, XForModPower );
-      ExponentCopy.ShiftRight( 1 ); // Divide by 2.
-      if( PrimeQ.ParamIsGreater( XForModPower ))
-        {
-        TestForModPower.Copy( XForModPower );
-        TestIndex = AddByBaseArraysQ( TestForModPower, XForModPower );
-        if( TestIndex > MaxModPowerIndex )
-          MaxModPowerIndex = TestIndex;
-
-        XForModPower.Copy( TestForModPower );
-        // Divide( XForModPower, PrimeQ, Quotient, Remainder );
-        // XForModPower.Copy( Remainder );
-        }
-      }
-
-    IntMath.Divide( Result, PrimeQ, Quotient, Remainder );
-    Result.Copy( Remainder );
-    }
-
-
-
-
-  internal int GetMaxModPowerIndex()
+    try
     {
-    return MaxModPowerIndex;
+    if( GeneralBaseArray == null )
+      throw( new Exception( "SetupGeneralBaseArray() should have already been called." ));
+
+    Result.SetToZero();
+
+    int HowManyToAdd = ToReduce.GetIndex() + 1;
+    if( HowManyToAdd > GeneralBaseArray.Length )
+      throw( new Exception( "Bug. The Input number should have been reduced first. HowManyToAdd > GeneralBaseArray.Length" ));
+
+    int BiggestIndex = 0;
+    for( int Count = 0; Count < HowManyToAdd; Count++ )
+      {
+      // The size of the numbers in GeneralBaseArray are
+      // all less than the size of GeneralBase.
+      // This multiplication by a uint is with a number
+      // that is not bigger than GeneralBase.  Compare
+      // this with the two full Muliply() calls done on
+      // each digit of the quotient in LongDivide3().
+
+      // AccumulateBase is set to a new value here.
+      int CheckIndex = IntMath.MultiplyUIntFromCopy( AccumulateBase, GeneralBaseArray[Count], ToReduce.GetD( Count ));
+
+      if( CheckIndex > BiggestIndex )
+        BiggestIndex = CheckIndex;
+
+      Result.Add( AccumulateBase );
+      }
+
+    return Result.GetIndex();
     }
+    catch( Exception Except )
+      {
+      throw( new Exception( "Exception in ModularReduction(): " + Except.Message ));
+      }
+    }
+
+
+
+
+  internal void SetupGeneralBaseArray( Integer GeneralBase )
+    {
+    // The input to the accumulator can be twice the bit length of GeneralBase.
+    int HowMany = ((GeneralBase.GetIndex() + 1) * 2) + 10; // Plus some extra for carries...
+    if( GeneralBaseArray == null )
+      {
+      GeneralBaseArray = new Integer[HowMany];
+      }
+
+    if( GeneralBaseArray.Length < HowMany )
+      {
+      GeneralBaseArray = new Integer[HowMany];
+      }
+
+    Integer Base = new Integer();
+    Integer BaseValue = new Integer();
+    Base.SetFromULong( 256 ); // 0x100
+    IntMath.MultiplyUInt( Base, 256 ); // 0x10000
+    IntMath.MultiplyUInt( Base, 256 ); // 0x1000000
+    IntMath.MultiplyUInt( Base, 256 ); // 0x100000000 is the base of this number system.
+
+    BaseValue.SetFromULong( 1 );
+    for( int Count = 0; Count < HowMany; Count++ )
+      {
+      if( GeneralBaseArray[Count] == null )
+        GeneralBaseArray[Count] = new Integer();
+
+      IntMath.Divide( BaseValue, GeneralBase, Quotient, Remainder );
+      GeneralBaseArray[Count].Copy( Remainder );
+
+      // If this ever happened it would be a bug because
+      // the point of copying the Remainder in to BaseValue
+      // is to keep it down to a reasonable size.
+      // And Base here is one bit bigger than a uint.
+      if( Base.ParamIsGreater( Quotient ))
+        throw( new Exception( "Bug. This never happens: Base.ParamIsGreater( Quotient )" ));
+
+      // Keep it to mod GeneralBase so Divide() doesn't
+      // have to do so much work.
+      BaseValue.Copy( Remainder );
+      IntMath.Multiply( BaseValue, Base );
+      }
+    }
+
 
 
 
@@ -462,174 +365,9 @@ namespace ExampleServer
 
 
 
-  internal void SetupBaseArrays( Integer PrimeP, Integer PrimeQ, BackgroundWorker Worker )
+  internal int GetMaxModPowerIndex()
     {
-    // Normally this would only get called when you start up your server since
-    // PrimeP and PrimeQ almost never change.
-
-    // Worker.ReportProgress( 0, " " );
-    // Worker.ReportProgress( 0, "Top of SetupBaseArrays." );
-
-    // If you multiply two 32-digit numbers together that makes a number
-    // that's 64 digits.
-    int HowMany = (PrimeP.GetIndex() * 2) + 10; // PrimeQ is the same length.
-    BaseArrayP = new Integer[HowMany];
-    BaseArrayQ = new Integer[HowMany];
-    BaseWorkArray1 = new Integer[HowMany];
-
-    Integer Base = new Integer();
-    Integer BaseValue = new Integer();
-    Base.SetFromULong( 256 );
-    IntMath.MultiplyUInt( Base, 256 );
-    IntMath.MultiplyUInt( Base, 256 );
-    IntMath.MultiplyUInt( Base, 256 );
-    // Worker.ReportProgress( 0, "Base hex: " + Base.GetAsHexString());
-    // It is 0x100000000. 0x1 00 00 00 00
-    // Which is 4,294,967,296.
-
-    BaseValue.SetFromULong( 1 );
-    for( int Count = 0; Count < HowMany; Count++ )
-      {
-      // Worker.ReportProgress( 0, " " );
-      // Worker.ReportProgress( 0, "Count: " + Count.ToString() );
-      // Worker.ReportProgress( 0, "BaseValue: " + ToString10( BaseValue ));
-
-      BaseArrayP[Count] = new Integer();
-      BaseArrayQ[Count] = new Integer();
-      BaseWorkArray1[Count] = new Integer();
-
-      IntMath.Divide( BaseValue, PrimeP, Quotient, Remainder );
-      BaseArrayP[Count].Copy( Remainder ); // The base value mod PrimeP
-      // Worker.ReportProgress( 0, "BaseArrayP: " + ToString10( BaseArrayP[Count] ));
-
-      IntMath.Divide( BaseValue, PrimeQ, Quotient, Remainder );
-      BaseArrayQ[Count].Copy( Remainder ); // The base value mod PrimeQ
-
-      IntMath.Multiply( BaseValue, Base );
-      }
-    }
-
-
-
-  internal void SetupGeneralBaseArray( Integer GeneralBase )
-    {
-    // The input to the accumulator can be twice the bit length of GeneralBase.
-    int HowMany = ((GeneralBase.GetIndex() + 1) * 2) + 10; // Plus some extra for carries...
-    if( GeneralBaseArray == null )
-      {
-      GeneralBaseArray = new Integer[HowMany];
-      }
-
-    if( GeneralBaseArray.Length < HowMany )
-      {
-      GeneralBaseArray = new Integer[HowMany];
-      }
-
-    Integer Base = new Integer();
-    Integer BaseValue = new Integer();
-    Base.SetFromULong( 256 ); // 0x100
-    IntMath.MultiplyUInt( Base, 256 ); // 0x10000
-    IntMath.MultiplyUInt( Base, 256 ); // 0x1000000
-    IntMath.MultiplyUInt( Base, 256 ); // 0x100000000 is the base of this number system.
-
-    BaseValue.SetFromULong( 1 );
-    for( int Count = 0; Count < HowMany; Count++ )
-      {
-      if( GeneralBaseArray[Count] == null )
-        GeneralBaseArray[Count] = new Integer();
-
-      IntMath.Divide( BaseValue, GeneralBase, Quotient, Remainder );
-      GeneralBaseArray[Count].Copy( Remainder );
-
-      // If this ever happened it would be a bug because
-      // the point of copying the Remainder in to BaseValue
-      // is to keep it down to a reasonable size.
-      // And Base here is one bit bigger than a uint.
-      if( Base.ParamIsGreater( Quotient ))
-        throw( new Exception( "Bug. This never happens: Base.ParamIsGreater( Quotient )" ));
-
-      // Keep it to mod GeneralBase so Divide() doesn't
-      // have to do so much work.
-      BaseValue.Copy( Remainder );
-
-      IntMath.Multiply( BaseValue, Base );
-      }
-    }
-
-
-
-  private int AddByBaseArraysP( Integer Result, Integer ToAdd )
-    {
-    if( BaseArrayP == null )
-      throw( new Exception( "SetupBaseArrays() should have already been called once when the server started." ));
-
-    Result.SetToZero();
-    for( int Count = 0; Count <= ToAdd.GetIndex(); Count++ )
-      {
-      BaseWorkArray1[Count].Copy( BaseArrayP[Count] );
-      IntMath.MultiplyUInt( BaseWorkArray1[Count], ToAdd.GetD( Count ));
-      Result.Add( BaseWorkArray1[Count] );
-      }
-
-    return Result.GetIndex();
-    }
-
-
-
-
-  private int AddByBaseArraysQ( Integer Result, Integer ToAdd )
-    {
-    if( BaseArrayQ == null )
-      throw( new Exception( "SetupBaseArrays() should have already been called once when the server started." ));
-
-    Result.SetToZero();
-    for( int Count = 0; Count <= ToAdd.GetIndex(); Count++ )
-      {
-      BaseWorkArray1[Count].Copy( BaseArrayQ[Count] );
-      IntMath.MultiplyUInt( BaseWorkArray1[Count], ToAdd.GetD( Count ));
-      Result.Add( BaseWorkArray1[Count] );
-      }
-
-    return Result.GetIndex();
-    }
-
-
-
-  // Copyright Eric Chauvin 2015.
-  internal int ModularReduction( Integer Result, Integer ToReduce )
-    {
-    try
-    {
-    if( GeneralBaseArray == null )
-      throw( new Exception( "SetupGeneralBaseArray() should have already been called." ));
-
-    Result.SetToZero();
-
-    int HowManyToAdd = ToReduce.GetIndex() + 1;
-    int BiggestIndex = 0;
-    for( int Count = 0; Count < HowManyToAdd; Count++ )
-      {
-      // The size of the numbers in GeneralBaseArray are all less than
-      // the size of GeneralBase.
-      // This multiplication by a uint is with a number that is not bigger
-      // than GeneralBase.  Compare this with the two full Muliply()
-      // calls done on each digit of the quotient in LongDivide3().
-
-      // AccumulateBase is set to a new value here.
-      int CheckIndex = IntMath.MultiplyUIntFromCopy( AccumulateBase, GeneralBaseArray[Count], ToReduce.GetD( Count ));
-
-      if( CheckIndex > BiggestIndex )
-        BiggestIndex = CheckIndex;
-
-      Result.Add( AccumulateBase );
-      }
-
-    return Result.GetIndex();
-    }
-    catch( Exception Except )
-      {
-      throw( new Exception( "Exception in ModularReduction(): " + Except.Message ));
-      }
+    return MaxModPowerIndex;
     }
 
 
