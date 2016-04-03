@@ -1,6 +1,12 @@
+/*
+
+Obsolete and not used.
+
+
+
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 using System;
@@ -24,7 +30,7 @@ namespace ExampleServer
   private Integer ProductSqrRoot;
   private Integer MaximumSmallFactor;
   private Integer[] BaseArray;
-  private const int BaseArraySize = 50;
+  private const int BaseArraySize = 140;
   private Integer TopB;
   private Integer TopBB;
   private int TopBIndex = 0;
@@ -41,7 +47,7 @@ namespace ExampleServer
   private Integer LeftQuotient;
   private CRTCombinatorics CRTCombin;
   private CRTCombinSetupRec[] SetupArray;
-
+  private FindFactors FindFactors1;
 
   private CombinatoricsFromTop()
     {
@@ -74,7 +80,7 @@ namespace ExampleServer
     ProductModTopBQuotient = new Integer();
     LeftQuotient = new Integer();
     CRTCombin = new CRTCombinatorics( ModMask, SetupArray, Worker, IntMath );
-
+    FindFactors1 = new FindFactors( Worker, IntMath );
     SetupBaseArray();
     }
 
@@ -222,6 +228,7 @@ namespace ExampleServer
     TopB.Copy( BaseArray[TopBIndex] );
     Worker.ReportProgress( 0, " " );
     Worker.ReportProgress( 0, "TopBIndex after lowering it: " + TopBIndex.ToString());
+    Worker.ReportProgress( 0, "Seconds: " + StartTime.GetSecondsToNow().ToString( "N1" ));
     Worker.ReportProgress( 0, " " );
 
     try
@@ -246,6 +253,7 @@ namespace ExampleServer
     // P = BB + Bx + By + xy
     // P - BB = Bx + By + xy
     // P - BB = B(x + y) + xy
+    // P - BB = Bx + By + xy
 
     TopBB.Copy( TopB );
     IntMath.DoSquare( TopBB );
@@ -495,7 +503,7 @@ namespace ExampleServer
         }
 
       // Use Task Manager to tweak CPU Utilization with this bit mask.
-      if( (Loops & 0xFFFF) == 0 )
+      if( (Loops & 0xFFFFF) == 0 )
         {
         // Allow me to use my computer while this is being tested in
         // the background.
@@ -519,6 +527,7 @@ namespace ExampleServer
         if( !CRTCombin.IncrementCRTDigitsWithBitMask())
           {
           Worker.ReportProgress( 0, "CRTCombin incremented to the end." );
+          Worker.ReportProgress( 0, "Seconds: " + StartTime.GetSecondsToNow().ToString( "N1" ));
           return;
           }
 
@@ -530,6 +539,7 @@ namespace ExampleServer
         if( !CRTCombin.IncrementCRTDigitsWithBitMask())
           {
           Worker.ReportProgress( 0, "CRTCombin incremented to the end." );
+          Worker.ReportProgress( 0, "Seconds: " + StartTime.GetSecondsToNow().ToString( "N1" ));
           return;
           }
 
@@ -542,6 +552,7 @@ namespace ExampleServer
         if( !CRTCombin.IncrementCRTDigitsWithBitMask())
           {
           Worker.ReportProgress( 0, "CRTCombin incremented to the end at min." );
+          Worker.ReportProgress( 0, "Seconds: " + StartTime.GetSecondsToNow().ToString( "N1" ));
           return;
           }
 
@@ -554,6 +565,7 @@ namespace ExampleServer
         if( !CRTCombin.IncrementCRTDigitsWithBitMask())
           {
           Worker.ReportProgress( 0, "CRTCombin incremented to the end at max." );
+          Worker.ReportProgress( 0, "Seconds: " + StartTime.GetSecondsToNow().ToString( "N1" ));
           return;
           }
 
@@ -603,6 +615,7 @@ namespace ExampleServer
       if( !CRTCombin.IncrementCRTDigitsWithBitMask())
         {
         Worker.ReportProgress( 0, "CRTCombin incremented to the end." );
+        Worker.ReportProgress( 0, "Seconds: " + StartTime.GetSecondsToNow().ToString( "N1" ));
         // Worker.ReportProgress( 0, "PastMinMaxCount: " + PastMinMaxCount.ToString() );
         return;
         }
@@ -611,7 +624,7 @@ namespace ExampleServer
 
 
 
-  /*
+///////////
   private bool FindXAndYTheHardWay( Integer XPlusY, Integer XTimesY )
     {
     try
@@ -684,15 +697,9 @@ namespace ExampleServer
       throw( new Exception( "Exception in FindXAndYTheHardWay()." ));
       }
     }
-    */
+    /////////
 
 
-    // P - BB = B(x + y) + xy
-    // L = B(Du + S) + Dv + c
-    // L = BDu + BS + Dv + c
-    // L = BDu + Dv + c + BS
-    // L - c - BS = BDu + Dv
-    // (L - c - BS) / D = Bu + v
 
 
   private bool FindXAndY( Integer XPlusY, Integer XTimesY )
@@ -706,7 +713,13 @@ namespace ExampleServer
 
     Integer Y = new Integer();
     Integer X = new Integer();
+
+    // I know what the sum and the product are, but I don't know what
+    // x and y are.
+
     // P - BB = B(x + y) + xy
+    // L = B(x + y) + xy
+    // L - B(x + y) = xy
 
 
     // TopB );
@@ -782,3 +795,6 @@ namespace ExampleServer
 
   }
 }
+
+*/
+
