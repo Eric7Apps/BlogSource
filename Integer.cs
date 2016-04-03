@@ -30,7 +30,7 @@ namespace ExampleServer
   // ModularReduction().  The number 770 in this example is
   // ChineseRemainder.DigitsArraySize.
   // HighestMatchForInverse: 760 of 770 and 127
-  internal const int DigitArraySize = ((1024 * 12) / 32) + 1;
+  internal const int DigitArraySize = ((1024 * 8) / 32) + 1;
 
 
 
