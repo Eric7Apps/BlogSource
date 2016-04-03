@@ -1,3 +1,8 @@
+/*
+
+This is obsolete and not used.
+
+
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
 // http://eric7apps.blogspot.com/
@@ -19,7 +24,6 @@ namespace ExampleServer
       internal int Start;
       internal int End;
       }
-
 
   class CRTCombinatorics
   {
@@ -166,14 +170,13 @@ namespace ExampleServer
         }
       }
 
-
     Utility.SortUintArray( ref NoDupArray );
     Rec.XPlusYDigits = NoDupArray;
     Rec.DigitsIndex = 0;
     CRTArray[Index] = Rec;
 
     Worker.ReportProgress( 0, " " );
-    Worker.ReportProgress( 0, "CRTArrayRec array size is: " + Last.ToString());
+    Worker.ReportProgress( 0, "CRTArrayRec array size is: " + NoDupArray.Length.ToString());
     Worker.ReportProgress( 0, "Base is: " + Rec.Base.ToString());
     Worker.ReportProgress( 0, " " );
     // 510,510
@@ -242,29 +245,6 @@ namespace ExampleServer
 
 
 
-  /*
-  Slower.
-  private uint GetIncrementAccumulateBits( CRTArrayRec Rec )
-    {
-    // int Index = CRTArray.Length - 1;
-
-    uint CurrentBase = Rec.Base;
-    uint AccumulateDigit = (uint)IntMath.GetMod32( LastAccumulateValue, CurrentBase );
-    int DigitsIndex = Rec.DigitsIndex;
-    uint CountB = Rec.MatchingInverseArray[DigitsIndex, AccumulateDigit];
-    uint BasePart = Rec.BigBaseBottomDigit;
-    // uint BasePart = (uint)CRTArray[Index].BigBase.GetD( 0 );
-    ulong AccumBits = checked( (ulong)BasePart * (ulong)CountB );
-
-    // This is not the same thing as AccumulateDigit:
-    AccumBits += LastAccumulateValue.GetD( 0 );
-    AccumBits = AccumBits & 0xFFFFFFFF;
-    return (uint)AccumBits;
-    }
-    */
-
-
-
 
   private uint GetIncrementAccumulateBits()
     {
@@ -281,7 +261,6 @@ namespace ExampleServer
     AccumBits = AccumBits & 0xFFFFFFFF;
     return (uint)AccumBits;
     }
-
 
 
 
@@ -343,14 +322,14 @@ namespace ExampleServer
       ModArray[Count].XPlusY = new uint[Prime];
       ModArray[Count].XTimesY = new uint[Prime];
 
-      /*
+      ///////////
       if( Count < 30 )
         {
         Worker.ReportProgress( 0, " " );
         Worker.ReportProgress( 0, "Prime: " + Prime.ToString() );
         Worker.ReportProgress( 0, "X\tY\tB\tL\tXPlusY\tXTimesY" );
         }
-        */
+        //////////
 
       for( uint CountX = 0; CountX < Prime; CountX++ )
         {
@@ -431,7 +410,7 @@ namespace ExampleServer
             // L is congruent to xy mod this prime.
 
 
-            /*
+            /////////
             if( Count < 30 )
               {
               string ShowS = CountX.ToString() + "\t" +
@@ -443,7 +422,7 @@ namespace ExampleServer
 
               Worker.ReportProgress( 0, ShowS );
               }
-              */
+              //////////
             }
           }
         }
@@ -542,7 +521,7 @@ namespace ExampleServer
           Rec.XPlusY[CountX] = (CountX + CountY) & ModBitsModulusBitMask;
           Rec.XTimesY[CountX] = (CountX * CountY) & ModBitsModulusBitMask;
 
-          /*
+          /////////
           string ShowS = CountX.ToString() + "\t" +
                          CountY.ToString() + "\t" +
                          Rec.B.ToString() + "\t" +
@@ -551,7 +530,7 @@ namespace ExampleServer
                          Rec.XTimesY[CountX].ToString();
 
           Worker.ReportProgress( 0, ShowS );
-          */
+          /////////
           }
         }
       }
@@ -903,7 +882,7 @@ namespace ExampleServer
 
 
 
-      /*
+      /////////
       for( uint CountB = 0; CountB < CurrentBase; CountB++ )
         {
         ulong ToTest = checked( (ulong)CRTArray[Count].BigBaseModCurrentBase * (ulong)CountB );
@@ -927,7 +906,7 @@ namespace ExampleServer
           break;
           }
         }
-        */
+        ///////
 
 
 
@@ -1034,4 +1013,4 @@ namespace ExampleServer
 
   }
 }
-
+*/
