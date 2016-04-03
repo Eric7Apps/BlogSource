@@ -36,7 +36,7 @@ namespace ExampleServer
 {
   public partial class MainForm : Form
   {
-  internal const string VersionDate = "3/12/2016";
+  internal const string VersionDate = "4/2/2016";
   internal const int VersionNumber = 09; // 0.9
   internal const string MessageBoxTitle = "Eric's Example Server";
   private System.Threading.Mutex SingleInstanceMutex = null;
@@ -55,9 +55,7 @@ namespace ExampleServer
   internal WebFilesData WebFData;
   internal DomainX509Data X509Data;
   private RNGCryptoServiceProvider CryptoRand;
-  private MakeRSAKeysForm MakeKeysForm;
   private QuadResSearchForm QuadResForm;
-  private LowExponentSecurityForm LowExponentForm;
   private bool Cancelled = false;
   private FactorDictionary FactorDictionary1;
 
@@ -94,10 +92,7 @@ namespace ExampleServer
     WebListenForm = new WebListenerForm( this );
     TLSListenForm = new TLSListenerForm( this );
     CustomerMsgForm = new CustomerMessageForm( this );
-    MakeKeysForm = new MakeRSAKeysForm( this );
     QuadResForm = new QuadResSearchForm( this );
-
-    LowExponentForm = new LowExponentSecurityForm( this );
 
     CheckTimer.Interval = 5 * 60 * 1000;
     CheckTimer.Start();
@@ -346,6 +341,7 @@ namespace ExampleServer
       CustomerMsgForm = null;
       }
 
+    /*
     if( MakeKeysForm != null )
       {
       if( !MakeKeysForm.IsDisposed )
@@ -359,6 +355,7 @@ namespace ExampleServer
 
       MakeKeysForm = null;
       }
+      */
 
     if( QuadResForm != null )
       {
@@ -375,19 +372,6 @@ namespace ExampleServer
       }
 
 
-    if( LowExponentForm != null )
-      {
-      if( !LowExponentForm.IsDisposed )
-        {
-        LowExponentForm.Hide();
-        
-        // This could take a while:
-        LowExponentForm.FreeEverything();
-        LowExponentForm.Dispose();
-        }
-
-      LowExponentForm = null;
-      }
     }
 
 
@@ -494,7 +478,7 @@ namespace ExampleServer
 
 
 
-
+  /*
   internal void ShowMakeKeysFormStatus( string Status )
     {
     if( IsClosing )
@@ -506,9 +490,9 @@ namespace ExampleServer
     if( MakeKeysForm.IsDisposed )
       return;
 
-    MakeKeysForm.ShowStatus( Status ); 
+    MakeKeysForm.ShowStatus( Status );
     }
-
+    */
 
 
   internal void ShowQuadResFormStatus( string Status )
@@ -642,19 +626,6 @@ namespace ExampleServer
 
 
 
-  private void showRSAMakeKeysToolStripMenuItem_Click(object sender, EventArgs e)
-    {
-    if( MakeKeysForm == null )
-      return;
-
-    if( MakeKeysForm.IsDisposed )
-      return;
-
-    MakeKeysForm.Show();
-    MakeKeysForm.WindowState = FormWindowState.Normal;
-    MakeKeysForm.BringToFront();
-    }
-
 
   private void MainForm_KeyDown(object sender, KeyEventArgs e)
     {
@@ -667,21 +638,9 @@ namespace ExampleServer
 
 
 
-  private void showLowExponentTestToolStripMenuItem_Click( object sender, EventArgs e )
-    {
-    if( LowExponentForm == null )
-      return;
-
-    if( LowExponentForm.IsDisposed )
-      return;
-
-    LowExponentForm.Show();
-    LowExponentForm.WindowState = FormWindowState.Normal;
-    LowExponentForm.BringToFront();
-    }
 
 
-
+  /*
   internal void FoundSolutionShutDown( string ProcessName,
                                        string SolutionP,
                                        string SolutionQ )
@@ -697,6 +656,7 @@ namespace ExampleServer
 
     MakeKeysForm.FoundSolutionShutDown( ProcessName, SolutionP, SolutionQ );
     }
+    */
 
 
 
