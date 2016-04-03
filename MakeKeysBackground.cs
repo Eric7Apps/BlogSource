@@ -1,6 +1,9 @@
+/*
+Obsolete and not used anymore.
+
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 using System;
@@ -53,9 +56,15 @@ namespace ExampleServer
   private int GoodLoopCount = 0;
   private int BadLoopCount = 0;
   private CRTMath CRTMath1;
+  private FindFactors FindFactors1;
 
+
+  // private const int PrimeIndex = 1; // Approximmately 64-bit primes.
+  private const int PrimeIndex = 2; // Approximmately 96-bit primes.
+  // private const int PrimeIndex = 3; // Approximmately 128-bit primes.
+  // private const int PrimeIndex = 7; // Approximmately 256-bit primes.
   // private const int PrimeIndex = 15; // Approximmately 512-bit primes.
-  private const int PrimeIndex = 31; // Approximmately 1024-bit primes.
+  // private const int PrimeIndex = 31; // Approximmately 1024-bit primes.
   // private const int PrimeIndex = 63; // Approximmately 2048-bit primes.
   // private const int PrimeIndex = 127; // Approximmately 4096-bit primes.
 
@@ -77,6 +86,7 @@ namespace ExampleServer
 
     RngCsp = new RNGCryptoServiceProvider();
     IntMath = new IntegerMath();
+    Worker.ReportProgress( 0, IntMath.GetStatusString() );
     Quotient = new Integer();
     Remainder = new Integer();
     Temp1 = new Integer();
@@ -99,6 +109,7 @@ namespace ExampleServer
     CipherToDQ = new Integer();
     TestForDecrypt = new Integer();
     CRTMath1 = new CRTMath( Worker );
+    FindFactors1 = new FindFactors( Worker, IntMath );
     }
 
 
@@ -129,7 +140,7 @@ namespace ExampleServer
     Integer Test1 = new Integer();
     Integer Test2 = new Integer();
 
-    CRTTest.SetFromTraditionalInteger( StartingNumber, IntMath );
+    CRTTest.SetFromTraditionalInteger( StartingNumber );
     // If the digit array size isn't set right in relation to
     // Integer.DigitArraySize then it can cause an error here.
     CRTMath1.GetTraditionalInteger( Accumulate, CRTTest );
@@ -137,17 +148,17 @@ namespace ExampleServer
     if( !Accumulate.IsEqual( StartingNumber ))
       throw( new Exception( "  !Accumulate.IsEqual( Result )." ));
 
-    CRTTestEqual.SetFromTraditionalInteger( Accumulate, IntMath );
+    CRTTestEqual.SetFromTraditionalInteger( Accumulate );
     if( !CRTMath1.IsEqualToInteger( CRTTestEqual, Accumulate ))
       throw( new Exception( "IsEqualToInteger() didn't work." ));
 
-
+    /////////
     CRTMath1.SetupBaseModArray( Accumulate );
 
     ChineseRemainder CRTInput = new ChineseRemainder( IntMath );
     Integer TestModulus = new Integer();
     TestModulus.Copy( StartingNumber );
-    CRTInput.SetFromTraditionalInteger( StartingNumber, IntMath );
+    CRTInput.SetFromTraditionalInteger( StartingNumber );
     CRTMath1.ModularReduction( CRTInput, CRTAccumulate );
 
     if( !CRTMath1.IsEqualToInteger( CRTAccumulate, Accumulate ))
@@ -156,17 +167,18 @@ namespace ExampleServer
     // Make sure it works with even numbers too.
     Test1.Copy( StartingNumber );
     Test1.SetD( 0, Test1.GetD( 0 ) & 0xFE );
-    CRTTest.SetFromTraditionalInteger( Test1, IntMath );
+    CRTTest.SetFromTraditionalInteger( Test1 );
     CRTMath1.GetTraditionalInteger( Accumulate, CRTTest );
 
     if( !Accumulate.IsEqual( Test1 ))
       throw( new Exception( "For even numbers.  !Accumulate.IsEqual( Test )." ));
+    ////////////
 
     // Make sure the size of this works with the Integer size because
     // an overflow is hard to find.
     CRTTestTime.SetToNow();
     Test1.SetToMaxValueForCRT();
-    CRTTest.SetFromTraditionalInteger( Test1, IntMath );
+    CRTTest.SetFromTraditionalInteger( Test1 );
     CRTMath1.GetTraditionalInteger( Accumulate, CRTTest );
 
     if( !Accumulate.IsEqual( Test1 ))
@@ -187,8 +199,8 @@ namespace ExampleServer
     TestProduct.Copy( StartingNumber );
     IntMath.Multiply( TestProduct, TestDivideBy );
 
-    CRTTestDivideBy.SetFromTraditionalInteger( TestDivideBy, IntMath );
-    CRTTestProduct.SetFromTraditionalInteger( TestDivideBy, IntMath );
+    CRTTestDivideBy.SetFromTraditionalInteger( TestDivideBy );
+    CRTTestProduct.SetFromTraditionalInteger( TestDivideBy );
     CRTTestProduct.Multiply( CRTTestDivideBy );
     
     CRTMath1.GetTraditionalInteger( Accumulate, CRTTestProduct );
@@ -214,8 +226,8 @@ namespace ExampleServer
     Test1.Copy( StartingNumber );
     IntMath.SetFromString( Test2, "12345678901234567890123456789012345" );
 
-    CRTTest.SetFromTraditionalInteger( Test1, IntMath );
-    CRTTest2.SetFromTraditionalInteger( Test2, IntMath );
+    CRTTest.SetFromTraditionalInteger( Test1 );
+    CRTTest2.SetFromTraditionalInteger( Test2 );
 
     CRTTest.Subtract( CRTTest2 );
     IntMath.Subtract( Test1, Test2 );
@@ -230,8 +242,8 @@ namespace ExampleServer
     Test1.Copy( StartingNumber );
     IntMath.SetFromString( Test2, "12345678901234567890123456789012345" );
 
-    CRTTest.SetFromTraditionalInteger( Test1, IntMath );
-    CRTTest2.SetFromTraditionalInteger( Test2, IntMath );
+    CRTTest.SetFromTraditionalInteger( Test1 );
+    CRTTest2.SetFromTraditionalInteger( Test2 );
 
     CRTTest.Add( CRTTest2 );
     IntMath.Add( Test1, Test2 );
@@ -246,10 +258,11 @@ namespace ExampleServer
 
 
 
-  private bool MakeAPrime( Integer Result, int RandomIndex, int HowMany )
+  private bool MakeAPrime( Integer Result, int SetToIndex, int HowMany )
     {
     try
     {
+    int Attempts = 0;
     while( true )
       {
       if( Worker.CancellationPending )
@@ -258,7 +271,7 @@ namespace ExampleServer
       // Don't hog the server's resources too much.
       Thread.Sleep( 1 ); // Give up the time slice.  Let other things run.
 
-      int HowManyBytes = (RandomIndex * 4) + 4;
+      int HowManyBytes = (SetToIndex * 4) + 4;
       byte[] RandBytes = MakeRandomBytes( HowManyBytes );
       if( RandBytes == null )
         {
@@ -266,37 +279,59 @@ namespace ExampleServer
         return false;
         }
 
-      if( !Result.MakeRandomOdd( RandomIndex, RandBytes ))
+      if( !Result.MakeRandomOdd( SetToIndex, RandBytes ))
         {
         Worker.ReportProgress( 0, "Error making random number in MakeKeysBackGround.MakeAPrime()." );
         return false;
         }
 
-      // DoCRTTest( Result );
+      Worker.ReportProgress( 0, " " );
+      FindFactors1.FindAllFactors( Result );
+      FindFactors1.ShowAllFactors();
+      Worker.ReportProgress( 0, " " );
+
+
+      DoCRTTest( Result );
 
       // Make sure that it's about the size I think it is.
-      if( Result.GetIndex() < RandomIndex )
-        continue;
+      if( Result.GetIndex() < SetToIndex )
+        throw( new Exception( "Does this ever happen with the size of the prime?" ));
+        // continue;
 
       // uint TestPrime = IntMath.NumberIsDivisibleByUInt( Result, Worker );
       uint TestPrime = IntMath.IsDivisibleBySmallPrime( Result );
       if( 0 != TestPrime)
         {
-        Worker.ReportProgress( 0, "Next test: " + TestPrime.ToString() );
+        // Worker.ReportProgress( 0, "Next test: " + TestPrime.ToString() );
         // Test:
         // if( IntMath.IsFermatPrime( Result, HowMany ))
           // throw( new Exception( "Passed IsFermatPrime even though it has a small prime." ));
 
+        Attempts++;
         continue;
         }
+
 
       Worker.ReportProgress( 0, "Fermat test." );
 
+      ChineseRemainder CRTFermatTest = new ChineseRemainder( IntMath );
+      CRTFermatTest.SetFromTraditionalInteger( Result );
+
       if( !IntMath.IsFermatPrime( Result, HowMany ))
         {
+        // if( CRTMath1.IsFermatPrime( CRTFermatTest, HowMany ))
+          // throw( new Exception( "Disagreement 1 for IsFermatPrime()." ));
+
+        Attempts++;
         Worker.ReportProgress( 0, "Did not pass Fermat test." );
         continue;
         }
+      /////////// else
+        {
+        if( !CRTMath1.IsFermatPrime( CRTFermatTest, HowMany ))
+          throw( new Exception( "Disagreement 2 for IsFermatPrime()." ));
+
+        } //////////
 
       // IsFermatPrime() could take a long time.
       if( Worker.CancellationPending )
@@ -304,6 +339,7 @@ namespace ExampleServer
 
       Worker.ReportProgress( 0, " " );
       Worker.ReportProgress( 0, "Found a probable prime." );
+      Worker.ReportProgress( 0, "Attempts: " + Attempts.ToString() );
       Worker.ReportProgress( 0, " " );
       // Presumably this will eventually find one and not loop forever.
       return true; // With Result.
@@ -342,7 +378,6 @@ namespace ExampleServer
 
 
 
-
   internal void MakeRSAKeys()
     {
     // These numbers are in RFC 2437:
@@ -372,11 +407,8 @@ namespace ExampleServer
     PubKeyExponent.SetFromULong( PubKeyExponentUint );
     int ShowBits = (PrimeIndex + 1) * 32;
     // int TestLoops = 0;
-    CRTCombinatorics CRTCombi = new CRTCombinatorics( CRTMath1, Worker, IntMath );
 
     Worker.ReportProgress( 0, "Bits size is: " + ShowBits.ToString());
-
-    IntMath.SetupDivisionArray();
 
     // Worker.ReportProgress( 0, IntMath.GetStatusString());
     // TestAddAndSubtract();
@@ -407,9 +439,7 @@ namespace ExampleServer
       }
       catch( Exception Except )
         {
-        Worker.ReportProgress( 0, "Exception with GetBigEndianByteArray()." );
-        Worker.ReportProgress( 0, Except.Message );
-        return;
+        throw( new Exception( "Exception with GetBigEndianByteArray(): " + Except.Message ));
         }
 
       try
@@ -418,16 +448,11 @@ namespace ExampleServer
       }
       catch( Exception Except )
         {
-        Worker.ReportProgress( 0, "Exception with SetFromBigEndianByteArray()." );
-        Worker.ReportProgress( 0, Except.Message );
-        return;
+        throw( new Exception( "Exception with SetFromBigEndianByteArray(): " + Except.Message ));
         }
 
       if( !Test1.IsEqual( PrimeP ))
-        {
-        Worker.ReportProgress( 0, "The big endian bytes weren't set right." );
-        continue;
-        }
+        throw( new Exception( "!The big endian bytes weren't set right." ));
 
 
       if( !MakeAPrime( PrimeQ, PrimeIndex, 20 ))
@@ -472,7 +497,7 @@ namespace ExampleServer
         }
 
 
-      IntMath.SetupBaseArrays( PrimeP, PrimeQ, Worker );
+      IntMath.IntMathNew.SetupBaseArrays( PrimeP, PrimeQ, Worker );
 
       PrimePMinus1.Copy( PrimeP );
       IntMath.SubtractULong( PrimePMinus1, 1 );
@@ -505,7 +530,10 @@ namespace ExampleServer
       ChineseRemainder CRTTestQuotient = new ChineseRemainder( IntMath );
 
       ChineseRemainder CRTSetupBaseTestPubKey = new ChineseRemainder( IntMath );
-      CRTSetupBaseTestPubKey.SetFromTraditionalInteger( PubKeyN, IntMath );
+      CRTSetupBaseTestPubKey.SetFromTraditionalInteger( PubKeyN );
+
+
+      ///////////
       CRTMath1.SetupBaseMultiples( CRTSetupBaseTestPubKey );
 
       Integer TestMultiples = new Integer();
@@ -514,7 +542,7 @@ namespace ExampleServer
         throw( new Exception( "!TestMultiples.IsEqual( PubKeyN )." ));
 
       ChineseRemainder CRTBaseGreaterTest = new ChineseRemainder( IntMath );
-      CRTBaseGreaterTest.SetFromTraditionalInteger( PrimeP, IntMath );
+      CRTBaseGreaterTest.SetFromTraditionalInteger( PrimeP );
       CRTMath1.SetupBaseMultiples( CRTBaseGreaterTest );
       if( !CRTBaseGreaterTest.ParamIsGreater( CRTSetupBaseTestPubKey ))
         throw( new Exception( "Magnitude test didn't work." ));
@@ -523,18 +551,19 @@ namespace ExampleServer
         throw( new Exception( "Second magnitude test didn't work." ));
 
       ChineseRemainder CRTTopTest = new ChineseRemainder( IntMath );
-      CRTCombi.FindBaseMultiplesFromTop( PrimeP, CRTTopTest );
+      CRTMath1.SetBaseMultiplesFromInteger( PrimeP, CRTTopTest );
       if( Worker.CancellationPending )
         {
-        CRTCombi.SetCancelled( true );
+        CRTMath1.SetCancelled( true );
         return;
         }
+      ////////
 
 
       ///////////////
       // Multiplicative Inverse test:
-      CRTTestDivideBy.SetFromTraditionalInteger( PrimeP, IntMath );
-      CRTTestProduct.SetFromTraditionalInteger( PubKeyN, IntMath );
+      CRTTestDivideBy.SetFromTraditionalInteger( PrimeP );
+      CRTTestProduct.SetFromTraditionalInteger( PubKeyN );
       CRTMath1.MultiplicativeInverse( CRTTestProduct, CRTTestDivideBy, CRTTestQuotient );
 
       Integer TestAnswer = new Integer();
@@ -600,7 +629,7 @@ namespace ExampleServer
       // e mod PhiN.  Which is mod (P - 1)(Q - 1).  It's called
       // PrivKInverseExponent here.
 
-      if( !IntMath.FindMultiplicativeInverseSmall( PrivKInverseExponent, PubKeyExponent, PhiN, Worker ))
+      if( !IntMath.IntMathNew.FindMultiplicativeInverseSmall( PrivKInverseExponent, PubKeyExponent, PhiN, Worker ))
         return;
 
       Worker.ReportProgress( 0, " " );
@@ -615,7 +644,7 @@ namespace ExampleServer
       // In RFC 2437 it defines a number dP which is the multiplicative
       // inverse, mod (P - 1) of e.  That dP is named PrivKInverseExponentDP here.
       Worker.ReportProgress( 0, " " );
-      if( !IntMath.FindMultiplicativeInverseSmall( PrivKInverseExponentDP, PubKeyExponent, PrimePMinus1, Worker ))
+      if( !IntMath.IntMathNew.FindMultiplicativeInverseSmall( PrivKInverseExponentDP, PubKeyExponent, PrimePMinus1, Worker ))
         return;
 
       Worker.ReportProgress( 0, " " );
@@ -630,7 +659,7 @@ namespace ExampleServer
       // In RFC 2437 it defines a number dQ which is the multiplicative
       // inverse, mod (Q - 1) of e.  That dQ is named PrivKInverseExponentDQ here.
       Worker.ReportProgress( 0, " " );
-      if( !IntMath.FindMultiplicativeInverseSmall( PrivKInverseExponentDQ, PubKeyExponent, PrimeQMinus1, Worker ))
+      if( !IntMath.IntMathNew.FindMultiplicativeInverseSmall( PrivKInverseExponentDQ, PubKeyExponent, PrimeQMinus1, Worker ))
         return;
 
       if( PrivKInverseExponentDQ.IsZero())
@@ -683,47 +712,36 @@ namespace ExampleServer
 
       ChineseRemainder CRTResult = new ChineseRemainder( IntMath );
       ChineseRemainder CRTModulus = new ChineseRemainder( IntMath );
-      Integer ToEncryptForCRTTest = new Integer();
 
+
+
+      ///////////
       // Make sure to set up the array first, for this modulus.
       CRTMath1.SetupBaseModArray( PubKeyN );
       // For testing:
       // CRTMath1.SetupGeneralBaseArray( PubKeyN );
 
+      CRTModulus.SetFromTraditionalInteger( PubKeyN );
+      CRTResult.SetFromTraditionalInteger( ToEncrypt );
 
-      CRTModulus.SetFromTraditionalInteger( PubKeyN, IntMath );
-      ToEncryptForCRTTest.Copy( ToEncrypt );
-      CRTResult.SetFromTraditionalInteger( ToEncryptForCRTTest, IntMath );
-
-      CRTMath1.ModularPower( ToEncryptForCRTTest,
-                             CRTResult,
+      CRTMath1.ModularPower( CRTResult,
                              PubKeyExponent,
-                             PubKeyN,
                              CRTModulus );
 
-      Worker.ReportProgress( 0, " " );
-      Worker.ReportProgress( 0, " " );
-      Worker.ReportProgress( 0, " " );
-      Worker.ReportProgress( 0, "//////////////////////////////////" );
       Worker.ReportProgress( 0, "QuotientForTest: " + CRTMath1.QuotientForTest.ToString( "N0" ) );
-      Worker.ReportProgress( 0, "//////////////////////////////////" );
-      Worker.ReportProgress( 0, " " );
-      Worker.ReportProgress( 0, " " );
-      Worker.ReportProgress( 0, " " );
-      // QuotientForTest: 41,334
-      // QuotientForTest: 43,681
-      // QuotientForTest: 44,396
 
-      IntMath.ModularPower( ToEncrypt, PubKeyExponent, PubKeyN );
+      IntMath.IntMathNew.ModularPower( ToEncrypt, PubKeyExponent, PubKeyN );
       if( Worker.CancellationPending )
         return;
 
-      // if( !CRTMath1.IsEqualToInteger( CRTResult, ToEncryptForCRTTest ))
-        // throw( new Exception( "ModularPower() didn't work." ));
+      Worker.ReportProgress( 0, IntMath.GetStatusString() );
 
-      if( !ToEncryptForCRTTest.IsEqual( ToEncrypt ))
-        throw( new Exception( "Second test.  ModularPower() didn't work." ));
+      ChineseRemainder CRTEncryptForCRTTest = new ChineseRemainder( IntMath );
+      CRTEncryptForCRTTest.SetFromTraditionalInteger( ToEncrypt );
 
+      if( !CRTEncryptForCRTTest.IsEqual( CRTResult ))
+        throw( new Exception( "ModularPower() didn't work." ));
+      ////////////
 
       CipherTextNumber.Copy( ToEncrypt );
 
@@ -733,7 +751,7 @@ namespace ExampleServer
 
       ECTime DecryptTime = new ECTime();
       DecryptTime.SetToNow();
-      IntMath.ModularPower( ToEncrypt, PrivKInverseExponent, PubKeyN );
+      IntMath.IntMathNew.ModularPower( ToEncrypt, PrivKInverseExponent, PubKeyN );
       Worker.ReportProgress( 0, "Decrypted number: " + IntMath.ToString10( ToEncrypt ));
 
       if( !PlainTextNumber.IsEqual( ToEncrypt ))
@@ -762,7 +780,7 @@ namespace ExampleServer
         }
 
       PlainTextNumber.Copy( ToEncrypt );
-      IntMath.ModularPower( ToEncrypt, PubKeyExponent, PubKeyN );
+      IntMath.IntMathNew.ModularPower( ToEncrypt, PubKeyExponent, PubKeyN );
       if( Worker.CancellationPending )
         return;
 
@@ -810,7 +828,7 @@ namespace ExampleServer
     {
     // If you can find PrivKInverseExponentDP (or DQ) then you can find the factors.
 
-    // Make sure this number is big enough.  Bigger then PrimeP and
+    // Make sure this number is big enough.  Bigger than PrimeP and
     // PrimeQ is big enough. And the approximate bit-length of those is
     // known from the public key length.
     ToEncryptForInverse.SetFromAsciiString( "Any arbitrary number. This is known Plain Text. This is known Plain Text. This is known Plain Text. This is known Plain Text. " );
@@ -834,7 +852,7 @@ namespace ExampleServer
       return false;
       }
 
-    IntMath.ModularPower( ToEncryptForInverse, PubKeyExponent, PubKeyN );
+    IntMath.IntMathNew.ModularPower( ToEncryptForInverse, PubKeyExponent, PubKeyN );
     if( Worker.CancellationPending )
       return false;
 
@@ -847,7 +865,7 @@ namespace ExampleServer
     // PrivKInverseExponentDQ is congruent to PrivKInverseExponent mod PrimeQMinus1.
 
     CipherToDP.Copy( CipherTextNumber );
-    IntMath.ModularPower( CipherToDP, PrivKInverseExponentDP, PubKeyN );
+    IntMath.IntMathNew.ModularPower( CipherToDP, PrivKInverseExponentDP, PubKeyN );
     if( Worker.CancellationPending )
       return false;
 
@@ -1104,7 +1122,7 @@ namespace ExampleServer
     PlainTextNumber.Copy( ToEncryptForInverse );
     Worker.ReportProgress( 0, "PlainTextNumber: " + IntMath.ToString10( PlainTextNumber ));
 
-    IntMath.ModularPower( ToEncryptForInverse, PubKeyExponent, PubKeyN );
+    IntMath.IntMathNew.ModularPower( ToEncryptForInverse, PubKeyExponent, PubKeyN );
     if( Worker.CancellationPending )
       return false;
 
@@ -1119,7 +1137,7 @@ namespace ExampleServer
     // from happening.
     //      2.2 Let m_1 = c^dP mod p.
     M1ForInverse.Copy( CipherTextNumber );
-    IntMath.ModularPower( M1ForInverse, PrivKInverseExponentDP, PrimeP );
+    IntMath.IntMathNew.ModularPower( M1ForInverse, PrivKInverseExponentDP, PrimeP );
     if( Worker.CancellationPending )
       return false;
 
@@ -1131,7 +1149,7 @@ namespace ExampleServer
 
     //      2.3 Let m_2 = c^dQ mod q.
     M2ForInverse.Copy( CipherTextNumber );
-    IntMath.ModularPower( M2ForInverse, PrivKInverseExponentDQ, PrimeQ );
+    IntMath.IntMathNew.ModularPower( M2ForInverse, PrivKInverseExponentDQ, PrimeQ );
     if( Worker.CancellationPending )
       return false;
 
@@ -1140,7 +1158,7 @@ namespace ExampleServer
 
     /////////////
     CipherToDP.Copy( CipherTextNumber );
-    IntMath.ModularPower( CipherToDP, PrivKInverseExponentDP, PubKeyN );
+    IntMath.IntMathNew.ModularPower( CipherToDP, PrivKInverseExponentDP, PubKeyN );
     if( Worker.CancellationPending )
       return false;
 
@@ -1169,13 +1187,12 @@ namespace ExampleServer
       }
     else
       {
-      Worker.ReportProgress( 0, "This is a bug. This should not happen." );
-      return false;
+      throw( new Exception( "This is a bug. Remainder should not be zero in ExploreRSAOptimization()." ));
       }
 
     ////////
     CipherToDQ.Copy( CipherTextNumber );
-    IntMath.ModularPower( CipherToDQ, PrivKInverseExponentDQ, PubKeyN );
+    IntMath.IntMathNew.ModularPower( CipherToDQ, PrivKInverseExponentDQ, PubKeyN );
     if( Worker.CancellationPending )
       return false;
 
@@ -1201,8 +1218,7 @@ namespace ExampleServer
       }
     else
       {
-      Worker.ReportProgress( 0, "This is a bug. This should not happen." );
-      return false;
+      throw( new Exception( "This is a bug. (2) Remainder should not be zero in ExploreRSAOptimization()." ));
       }
 
 
@@ -1215,8 +1231,7 @@ namespace ExampleServer
     // M2ForInverse, which isn't larger than PrimeQ.
     if( PlainTextNumber.ParamIsGreater( M2ForInverse ))
       {
-      Worker.ReportProgress( 0, "This is a bug. The plain text was too small." );
-      return false;
+      throw( new Exception( "This is a bug. The plain text was too small." ));
       }
 
     HForQInv.Copy( PlainTextNumber );
@@ -1225,8 +1240,7 @@ namespace ExampleServer
     IntMath.Divide( HForQInv, PrimeQ, Quotient, Remainder );
     if( !Remainder.IsZero())
       {
-      Worker.ReportProgress( 0, "This is a bug. The Remainder for HForQInv has to be zero." );
-      return false;
+      throw( new Exception( "This is a bug. The Remainder for HForQInv has to be zero." ));
       }
 
     HForQInv.Copy( Quotient );
@@ -1282,14 +1296,14 @@ namespace ExampleServer
       Worker.ReportProgress( 0, "MultiplicativeInverse() returned false." );
       return false;
       }
-    /*
+    ///////////
     }
     catch( Exception Except )
       {
       Worker.ReportProgress( 0, "Exception for MultiplicativeInverse()." );
       Worker.ReportProgress( 0, Except.Message );
       return false;
-      } */
+      } ////////////
 
     if( QInv.IsNegative )
       throw( new Exception( "This is a bug. QInv is negative." ));
@@ -1305,8 +1319,7 @@ namespace ExampleServer
     IntMath.Divide( Test1, PrimeP, Quotient, Remainder );
     if( !Remainder.IsEqual( HForQInv ))
       {
-      Worker.ReportProgress( 0, "This is a bug. !Remainder.IsEqual( HForQInv )." );
-      return false;
+      throw( new Exception( "This is a bug. !Remainder.IsEqual( HForQInv )." ));
       }
 
     Worker.ReportProgress( 0, "Finished ExploreRSAOptimization()." );
@@ -1344,8 +1357,8 @@ namespace ExampleServer
 
     //      2.2 Let m_1 = c^dP mod p.
     TestForDecrypt.Copy( EncryptedNumber );
-    IntMath.ModularPowerModPrimeP( TestForDecrypt, PrivKInverseExponentDP, PrimeP );
-    int MaxIndex = IntMath.GetMaxModPowerIndex();
+    IntMath.IntMathNew.ModularPowerModPrimeP( TestForDecrypt, PrivKInverseExponentDP, PrimeP );
+    int MaxIndex = IntMath.IntMathNew.GetMaxModPowerIndex();
     Worker.ReportProgress( 0, " " );
     Worker.ReportProgress( 0, "MaxIndex: " + MaxIndex.ToString());
     Worker.ReportProgress( 0, " " );
@@ -1362,7 +1375,7 @@ namespace ExampleServer
 
     //      2.3 Let m_2 = c^dQ mod q.
     TestForDecrypt.Copy( EncryptedNumber );
-    IntMath.ModularPowerModPrimeQ( TestForDecrypt, PrivKInverseExponentDQ, PrimeQ );
+    IntMath.IntMathNew.ModularPowerModPrimeQ( TestForDecrypt, PrivKInverseExponentDQ, PrimeQ );
 
     // M2ForInverse.Copy( EncryptedNumber );
     // IntMath.ModularPowerOld( M2ForInverse, PrivKInverseExponentDQ, PrimeQ );
@@ -1472,5 +1485,5 @@ namespace ExampleServer
   }
 }
 
-
+*/
 
