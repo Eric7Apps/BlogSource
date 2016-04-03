@@ -1,6 +1,6 @@
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 using System;
@@ -102,7 +102,7 @@ namespace ExampleServer
         return;
 
       Loops++;
-      if( (Loops & 0x3FF) == 0 )
+      if( (Loops & 0xF) == 0 )
         {
         Worker.ReportProgress( 0, " " );
         Worker.ReportProgress( 0, "Loops: " + Loops.ToString( "N0" ));
@@ -128,116 +128,96 @@ namespace ExampleServer
       IncrementYBy += IncrementConst;
       uint BitLength = IncrementBy();
 
-      const uint SomeOptimumBitLength = 30;
+      const uint SomeOptimumBitLength = 2;
       if( BitLength < SomeOptimumBitLength )
         continue;
 
-      double Ratio = 0;
-      if( XSquaredBitLength > 0 )
-        Ratio = (double)BitLength / (double)XSquaredBitLength;
-
-      // If this Ratio was about 1.0 it would mean all of the exponents 
-      // are one.  It would exclude numbers with exponents higher
-      // than one.  But if a large prime had an exponent more than one
-      // then it could bring this ratio down pretty far.
-      // The most extreme ratio would be if all of the factors were 2
-      // so that BitLength is 1 because that's the only factor
-      // that got added in IncrementBy(), where it calculates
-      // TotalBitLength.
-
-      // This ratio has to do with how many small factors you want
+      // This BitLength has to do with how many small factors you want
       // in the number.  But it doesn't limit your factor base at all.
       // You can still have any size prime in your factor base (up to
       // IntegerMath.PrimeArrayLength).  Compare the size of
-      // YBaseToPrimesArrayLength to the PrimeArrayLength.
-      const double SomeOptimumRatio = 0.2;
+      // YBaseToPrimesArrayLast to IntegerMath.PrimeArrayLength.
+      BSmoothTestsCount++;
+      YTop.AddULong( IncrementYBy );
+      IncrementYBy = 0;
+      Y.Copy( ProductSqrRoot );
+      Y.Add( YTop );
+      XSquared.Copy( Y );
+      IntMath.DoSquare( XSquared );
+      if( XSquared.ParamIsGreater( Product ))
+        throw( new Exception( "Bug. XSquared.ParamIsGreater( Product )." ));
 
-      if( Ratio > SomeOptimumRatio )
+      IntMath.Subtract( XSquared, Product );
+
+      XSquaredBitLength = (uint)(XSquared.GetIndex() * 32);
+      uint TopDigit = (uint)XSquared.GetD( XSquared.GetIndex());
+      uint TopLength = GetBitLength( TopDigit );
+      XSquaredBitLength += TopLength;
+      if( XSquaredBitLength == 0 )
+        XSquaredBitLength = 1;
+
+      // if( ItIsTheAnswerAlready( XSquared ))  It's too unlikely.
+      // QuadResCombinatorics could run in parallel to check for that,
+      // and it would be way ahead of this.
+
+      GetOneMainFactor();
+      if( OneMainFactor.IsEqual( XSquared ))
         {
-        BSmoothTestsCount++;
-        YTop.AddULong( IncrementYBy );
-        IncrementYBy = 0;
-        Y.Copy( ProductSqrRoot );
-        Y.Add( YTop );
-        XSquared.Copy( Y );
-        IntMath.DoSquare( XSquared );
-        if( XSquared.ParamIsGreater( Product ))
-          throw( new Exception( "Bug. XSquared.ParamIsGreater( Product )." ));
+        MakeFastExpNumber( ExpNumber );
+        }
+      else
+        {
+        if( OneMainFactor.IsZero())
+          throw( new Exception( "OneMainFactor.IsZero()." ));
 
-        IntMath.Subtract( XSquared, Product );
+        IntMath.Divide( XSquared, OneMainFactor, Quotient, Remainder );
+        ExpNumber.SetFromTraditionalInteger( Quotient );
+        ExpNumber.Multiply( ExpOneMainFactor );
+        ExpNumber.GetTraditionalInteger( Test );
+        if( !Test.IsEqual( XSquared ))
+          throw( new Exception( "!Test.IsEqual( XSquared )." ));
 
-        XSquaredBitLength = (uint)(XSquared.GetIndex() * 32);
-        uint TopDigit = (uint)XSquared.GetD( XSquared.GetIndex());
-        uint TopLength = GetBitLength( TopDigit );
-        XSquaredBitLength += TopLength;
-        if( XSquaredBitLength == 0 )
-          XSquaredBitLength = 1;
+        }
 
-        // if( ItIsTheAnswerAlready( XSquared ))  It's too unlikely.
-        // QuadResCombinatorics could run in parallel to check for that,
-        // and it would be way ahead of this.
+      if( ExpNumber.IsBSmooth())
+        {
+        BSmoothCount++;
+        string DelimS = IntMath.ToString10( Y ) + "\t" +
+                        ExpNumber.ToDelimString();
 
-        GetOneMainFactor();
-        if( OneMainFactor.IsEqual( XSquared ))
+        Worker.ReportProgress( 1, DelimS );
+
+        if( (BSmoothCount & 0x3F) == 0 )
           {
-          MakeFastExpNumber( ExpNumber );
-          }
-        else
-          {
-          if( OneMainFactor.IsZero())
-            throw( new Exception( "OneMainFactor.IsZero()." ));
+          Worker.ReportProgress( 0, " " );
+          Worker.ReportProgress( 0, "BitLength: " + BitLength.ToString());
+          Worker.ReportProgress( 0, "XSquaredBitLength: " + XSquaredBitLength.ToString());
+          Worker.ReportProgress( 0, ExpNumber.ToString() );
 
-          IntMath.Divide( XSquared, OneMainFactor, Quotient, Remainder );
-          ExpNumber.SetFromTraditionalInteger( Quotient );
-          ExpNumber.Multiply( ExpOneMainFactor );
-          ExpNumber.GetTraditionalInteger( Test );
-          if( !Test.IsEqual( XSquared ))
-            throw( new Exception( "!Test.IsEqual( XSquared )." ));
-
-          }
-
-        if( ExpNumber.IsBSmooth())
-          {
-          BSmoothCount++;
-          string DelimS = IntMath.ToString10( Y ) + "\t" +
-                         ExpNumber.ToDelimString();
-
-          Worker.ReportProgress( 1, DelimS );
-
-          if( (BSmoothCount & 0x3F) == 0 )
+          // What should BSmoothLimit be?
+          // (Since FactorDictionary.cs will reduce the final factor base.)
+          if( BSmoothCount > BSmoothLimit )
             {
-            Worker.ReportProgress( 0, " " );
-            Worker.ReportProgress( 0, "BitLength: " + BitLength.ToString());
-            Worker.ReportProgress( 0, "XSquaredBitLength: " + XSquaredBitLength.ToString());
-            Worker.ReportProgress( 0, "Ratio: " + Ratio.ToString( "N2" ));
-            Worker.ReportProgress( 0, ExpNumber.ToString() );
-
-            // What should BSmoothLimit be?
-            // (Since FactorDictionary.cs will reduce the final factor base.)
-            if( BSmoothCount > BSmoothLimit )
-              {
-              Worker.ReportProgress( 0, "Found enough to make the matrix." );
-              Worker.ReportProgress( 0, "BSmoothCount: " + BSmoothCount.ToString( "N0" ));
-              Worker.ReportProgress( 0, "BSmoothLimit: " + BSmoothLimit.ToString( "N0" ));
-              Worker.ReportProgress( 0, "Seconds: " + StartTime.GetSecondsToNow().ToString( "N1" ));
-              double Seconds = StartTime.GetSecondsToNow();
-              int Minutes = (int)Seconds / 60;
-              int Hours = Minutes / 60;
-              Minutes = Minutes % 60;
-              Seconds = Seconds % 60;
-              string ShowS = "Hours: " + Hours.ToString( "N0" ) + 
+            Worker.ReportProgress( 0, "Found enough to make the matrix." );
+            Worker.ReportProgress( 0, "BSmoothCount: " + BSmoothCount.ToString( "N0" ));
+            Worker.ReportProgress( 0, "BSmoothLimit: " + BSmoothLimit.ToString( "N0" ));
+            Worker.ReportProgress( 0, "Seconds: " + StartTime.GetSecondsToNow().ToString( "N1" ));
+            double Seconds = StartTime.GetSecondsToNow();
+            int Minutes = (int)Seconds / 60;
+            int Hours = Minutes / 60;
+            Minutes = Minutes % 60;
+            Seconds = Seconds % 60;
+            string ShowS = "Hours: " + Hours.ToString( "N0" ) + 
                    "  Minutes: " + Minutes.ToString( "N0" ) +
                    "  Seconds: " + Seconds.ToString( "N0" );
 
-              Worker.ReportProgress( 0, ShowS );
+            Worker.ReportProgress( 0, ShowS );
 
-              return;
-              }
+            return;
             }
           }
         }
       }
-
     }
     catch( Exception Except )
       {
@@ -357,14 +337,13 @@ namespace ExampleServer
 
         // This is making quadratic residues (plus ProdMod and using
         // YBaseMod) so there are usually two of each residue, and
-        // two zeros.
+        // two zeros.  (Two solutions to a quadratic equation.)
         // Rec.GoodY[Y] = true;
         Rec.YToX[Y] = (uint)Test; // Test is x^2.
         }
 
       YBaseToPrimesArray[YBaseToPrimesArrayLast] = Rec;
       YBaseToPrimesArrayLast++;
-
       }
 
     Array.Resize( ref YBaseToPrimesArray, YBaseToPrimesArrayLast );
@@ -411,7 +390,7 @@ namespace ExampleServer
     EulerResult.Copy( Product );
     EulerModulus.SetFromULong( Prime );
 
-    IntMath.ModularPower( EulerResult, EulerExponent, EulerModulus );
+    IntMath.IntMathNew.ModularPower( EulerResult, EulerExponent, EulerModulus, false );
     if( EulerResult.IsOne())
       return true;
     else
