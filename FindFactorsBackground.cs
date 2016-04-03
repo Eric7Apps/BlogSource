@@ -1,6 +1,11 @@
+/*
+
+Obsolete and not used anymore.
+
+
 // Programming by Eric Chauvin.
 // Notes on this source code are at:
-// http://eric7apps.blogspot.com/
+// ericbreakingrsa.blogspot.com
 
 
 using System;
@@ -113,24 +118,24 @@ namespace ExampleServer
         }
 
 
-
+      
       // When testing with small numbers, make them a little smaller.
       // If the index is 1, then a mask of 0xF makes it 32 + 4 bits.
       // 0xFFF is 32 + 12 bits.
       // 0xFFFF is 32 + 16 bits.  48.  So 96 bit modulus.
-      ulong MaskTop = Result.GetD( SetToIndex ) & 0x3FFF;
+      ulong MaskTop = Result.GetD( SetToIndex ) & 0x3FFFFFFF;
       if( MaskTop != 0 )
         Result.SetD( SetToIndex, MaskTop );
       else
         continue;
+      
 
-
-      /*
+      //////////
       Worker.ReportProgress( 0, " " );
       FindFactors1.FindAllFactors( Result );
       FindFactors1.ShowAllFactors();
       Worker.ReportProgress( 0, " " );
-      */
+      //////////
 
       // Make sure that it's about the size I think it is.
       if( Result.GetIndex() < SetToIndex )
@@ -201,14 +206,14 @@ namespace ExampleServer
     }
 
 
-  /*
+  /////////
   internal Integer GetSolutionP()
     {
     Integer Result = new Integer();
     Result.Copy( SolutionP );
     return Result;
     }
-    */
+   //////////
 
 
   internal string GetSolutionQString()
@@ -290,6 +295,7 @@ namespace ExampleServer
       SolutionP.Copy( P );
       SolutionQ.Copy( Q );
       Worker.ReportProgress( 0, "After FindTwoFactors, SolutionP is:" + IntMath.ToString10( SolutionP ));
+      Worker.ReportProgress( 0, "Seconds: " + StartTime.GetSecondsToNow().ToString( "N1" ));
 
       // FindFactors1.FindTwoFactorsWithFermat( PubKeyN, P, Q, 0 );
 
@@ -308,6 +314,6 @@ namespace ExampleServer
   }
 }
 
-
+*/
 
 
