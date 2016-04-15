@@ -235,6 +235,14 @@ namespace ExampleServer
       if( !MakeAPrime( PrimeP, PrimeIndex, 20 ))
         return;
 
+      IntegerBase TestP = new IntegerBase();
+      IntegerBaseMath IntBaseMath = new IntegerBaseMath( IntMath );
+      string TestS = IntMath.ToString10( PrimeP );
+      IntBaseMath.SetFromString( TestP, TestS );
+      string TestS2 = IntBaseMath.ToString10( TestP );
+      if( TestS != TestS2 )
+        throw( new Exception( "TestS != TestS2 for IntegerBase." ));
+
       if( Worker.CancellationPending )
         return;
 
@@ -525,12 +533,14 @@ namespace ExampleServer
       Worker.ReportProgress( 0, " " );
       Worker.ReportProgress( 1, "PrivKInverseExponent: " + IntMath.ToString10( PrivKInverseExponent ));
 
+      /*
       Worker.ReportProgress( 0, " " );
       Worker.ReportProgress( 0, " " );
       Worker.ReportProgress( 0, " " );
       DoCRTTest( PrivKInverseExponent );
       Worker.ReportProgress( 0, "Finished CRT test." );
       Worker.ReportProgress( 0, " " );
+      */
 
       return; // Comment this out to just leave it while( true ) for testing.
       }
