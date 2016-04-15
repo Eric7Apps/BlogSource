@@ -18,7 +18,7 @@
 using System;
 using System.Text;
 using System.ComponentModel; // BackgroundWorker
-using System.Collections.Generic;
+// using System.Collections.Generic;
 
 
 
@@ -77,7 +77,6 @@ namespace ExampleServer
   internal const int PrimeArrayLength = 1024 * 32;
   private string StatusString = "";
   private bool Cancelled = false;
-  // private int[,] ByteStats;
   internal IntegerMathNew IntMathNew;
 
 
@@ -2564,6 +2563,9 @@ namespace ExampleServer
     // is usually described as using random primes to test with, and you
     // could do it that way too.  Except that this Fermat test is being
     // used to find random primes, so...
+
+    // A common way of doing this is to use a multiple of
+    // several primes as the base, like 2 * 3 * 5 * 7 = 210.
     int StartAt = IntegerMath.PrimeArrayLength - (1024 * 16); // Or much bigger.
     if( StartAt < 100 )
       StartAt = 100;
