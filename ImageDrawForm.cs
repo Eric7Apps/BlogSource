@@ -41,7 +41,7 @@ namespace ExampleServer
                               MForm.GetMainScreenHeight() );
                               // PixelFormat.Canonical ); // Default 24 bit color.
 
-    DrawTimer.Interval = 500;
+    DrawTimer.Interval = 200;
     DrawTimer.Start();
     }
 
@@ -80,20 +80,16 @@ namespace ExampleServer
         }
 
       BitGraph.Clear( Color.Black );
-
-    // Font MainFont = new Font( FontFamily.GenericSansSerif,
-    //                          14.0F, 
-    //                          FontStyle.Regular,
-    //                          GraphicsUnit.Pixel );
-
       MultBits.Draw( BitGraph, Sz.Height, Sz.Width );
       }
 
     MainPictureBox.Image = ImageBitmap;
     }
-    catch( Exception ) // Except )
+    catch( Exception Except )
       {
-      return;
+      // DrawTimer.Stop();
+      MForm.ShowStatus( "Exception in DrawToBitmap()." );
+      MForm.ShowStatus( Except.Message );
       }
     }
 
@@ -107,10 +103,70 @@ namespace ExampleServer
       return;
       }
 
+    try
+    {
+    DrawTimer.Stop();
+    MultBits.TestValues();
     DrawToBitmap();
+    DrawTimer.Start();
+
+    }
+    catch( Exception Except )
+      {
+      DrawTimer.Stop();
+      MForm.ShowStatus( "Exception in DrawTimer_Tick()." );
+      MForm.ShowStatus( Except.Message );
+      }
     }
 
 
 
+  private void showUnknownsToolStripMenuItem_Click(object sender, EventArgs e)
+    {
+    MultBits.MakeUnknownsDictionary();
+    }
+
+
+
+  private void testPrimeToolStripMenuItem_Click(object sender, EventArgs e)
+    {
+    // 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73,
+    // 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131,
+    // 137, 139, 149, 151, 157, 163, 167, 173, 179, 181,
+    // 191, 193, 197, 199, 211, 223, 227, 229, 233, 239,
+    // 241, 251, 257, 263, 269, 271, 277, 281, 283, 293,
+    // 307, 311, 313, 317, 331, 337, 347, 349, 353, 359,
+    // 367, 373, 379, 383, 389, 397, 401, 409, 419, 421,
+    // 431, 433, 439, 443, 449, 457, 461, 463, 467, 479,
+    // 487, 491, 499, 503, 509, 521, 523, 541, 
+
+    // Test a composite number too.
+    MultBits.SetupFermatLittle( 63 ); // 127
+    DrawTimer.Interval = 200;
+    DrawTimer.Start();
+    }
+
+
+
+  private void showInputOutputToolStripMenuItem_Click(object sender, EventArgs e)
+    {
+    MultBits.ShowInputOutputDictionary();
+    }
+
+
+
+  private void productToolStripMenuItem_Click(object sender, EventArgs e)
+    {
+    }
+
+
+
+  private void ImageDrawForm_Resize(object sender, EventArgs e)
+    {
+    DrawToBitmap();
+    }
+
+
   }
 }
+
